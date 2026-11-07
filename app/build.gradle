@@ -53,3 +53,15 @@ tasks.register('launcherBundle') {
 		new File(dir, 'manifest.txt').text = lines.join('\n') + '\n'
 	}
 }
+
+tasks.register('uiPreview', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'fr.krosmocraft.launcher.app.ui.UiPreview'
+	args layout.buildDirectory.dir('ui-preview').get().asFile.absolutePath
+	jvmArgs '--enable-native-access=ALL-UNNAMED'
+}
+
+tasks.named('test') {
+	failOnNoDiscoveredTests = false
+}
