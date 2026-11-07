@@ -65,3 +65,8 @@ tasks.register('uiPreview', JavaExec) {
 tasks.named('test') {
 	failOnNoDiscoveredTests = false
 }
+
+// dev runs use ./run instead of the real data dir
+tasks.named('run', JavaExec) {
+	if (!System.getenv('KROSMOCRAFT_HOME')) environment 'KROSMOCRAFT_HOME', rootProject.file('run').absolutePath
+}

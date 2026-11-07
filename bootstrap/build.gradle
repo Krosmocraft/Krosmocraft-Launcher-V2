@@ -70,7 +70,7 @@ tasks.register('jpackage', Exec) {
 			// adding a module later means a new installer
 			'--add-modules', [
 				'java.base', 'java.desktop', 'java.logging', 'java.net.http', 'java.xml', 'java.naming',
-				'java.management', 'java.scripting', 'jdk.crypto.ec', 'jdk.unsupported', 'jdk.jsobject',
+				'java.management', 'jdk.management', 'java.scripting', 'jdk.crypto.ec', 'jdk.unsupported', 'jdk.jsobject',
 				'jdk.zipfs', 'jdk.localedata',
 				'javafx.base', 'javafx.graphics', 'javafx.controls', 'javafx.media',
 			].join(','),
@@ -88,4 +88,9 @@ tasks.register('jpackage', Exec) {
 		}
 		commandLine args
 	}
+}
+
+// dev runs use ./run instead of the real data dir
+tasks.named('run', JavaExec) {
+	if (!System.getenv('KROSMOCRAFT_HOME')) environment 'KROSMOCRAFT_HOME', rootProject.file('run').absolutePath
 }
