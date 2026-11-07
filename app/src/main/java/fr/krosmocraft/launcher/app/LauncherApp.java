@@ -12,6 +12,7 @@ import fr.krosmocraft.launcher.core.LaunchPipeline;
 import fr.krosmocraft.launcher.core.auth.AuthResult;
 import fr.krosmocraft.launcher.core.auth.KrosmoAuthClient;
 import fr.krosmocraft.launcher.core.auth.ProfileInfo;
+import fr.krosmocraft.launcher.core.auth.ServerSessions;
 import fr.krosmocraft.launcher.core.config.LauncherSettings;
 import fr.krosmocraft.launcher.core.config.PasswordVault;
 import fr.krosmocraft.launcher.core.game.GameLayout;
@@ -38,7 +39,9 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,15 +51,14 @@ import static fr.krosmocraft.launcher.app.ui.AbsolutePane.box;
 
 public final class LauncherApp extends Application {
 
-	private static final String AUTH_API = "http://launcher.krosmocraft.fr:24454";
-
 	private final ExecutorService worker = Executors.newCachedThreadPool(r -> {
 		Thread t = new Thread(r, "launcher-worker");
 		t.setDaemon(true);
 		return t;
 	});
 	private final Platform platform = Platform.current();
-	private final KrosmoAuthClient auth = new KrosmoAuthClient(AUTH_API);
+	private final ServerSessions sessions = new ServerSessions();
+	private final Map<String, Image> skins = new HashMap<>();
 
 	private GameLayout layout;
 	private LauncherSettings settings;
@@ -75,6 +77,9 @@ public final class LauncherApp extends Application {
 	private MainScreen mainScreen;
 	private LoginScreen.Credentials credentials;
 	private AuthResult.Success session;
+	private ServerEntry sessionServer;
+	// set while a login is running
+	private ServerEntry loginServer;
 	private Image skin;
 	private ProfileInfo profile = ProfileInfo.EMPTY;
 	private MediaPlayer music;
@@ -97,11 +102,12 @@ public final class LauncherApp extends Application {
 		showLogin();
 		window.show();
 
-		run(() -> ServerEntry.fetch(LaunchPipeline.CDN + "servers.cfg"), list -> {
+		run(ServerEntry::fetch, list -> {
 			servers = list;
 			ServerEntry selected = server(settings.server);
 			window.setServers(servers, selected, this::serverChanged);
 			prepare();
+			followServer();
 		}, e -> prepare());
 	}
 
@@ -120,7 +126,7 @@ public final class LauncherApp extends Application {
 		if (mainScreen != null) {
 			mainScreen.preparing();
 		}
-		ServerEntry server = window.selectedServer() != null ? window.selectedServer() : server(settings.server);
+		ServerEntry server = currentServer();
 		Task<LaunchPipeline.Prepared> task = new ProgressTask<>() {
 			@Override
 			protected LaunchPipeline.Prepared call() throws Exception {
@@ -181,6 +187,38 @@ public final class LauncherApp extends Application {
 		settings.server = s.name();
 		saveSettings();
 		prepare();
+		followServer();
+	}
+
+	private void followServer() {
+		if (loginServer != null) {
+			return; // showMain checks again
+		}
+		ServerEntry server = currentServer();
+		if (session != null && sessionServer.key().equals(server.key())) {
+			return;
+		}
+		AuthResult.Success known = sessions.get(server).orElse(null);
+		if (known == null) {
+			if (mainScreen != null) {
+				backToLogin();
+			}
+			return;
+		}
+		useSession(server, known);
+		if (mainScreen != null) {
+			window.overlayLayer().getChildren().clear();
+			window.screenLayer().remove(mainScreen);
+			mainScreen = null;
+		}
+		showMain(false);
+	}
+
+	private void useSession(ServerEntry server, AuthResult.Success s) {
+		session = s;
+		sessionServer = server;
+		skin = skins.get(server.key());
+		profile = ProfileInfo.EMPTY;
 	}
 
 	private void showLogin() {
@@ -197,7 +235,11 @@ public final class LauncherApp extends Application {
 		settings.username = c.username();
 		settings.rememberMe = c.remember();
 		saveSettings();
+		ServerEntry server = currentServer();
+		loginServer = server;
+		KrosmoAuthClient auth = new KrosmoAuthClient(server.authUrl());
 		run(() -> auth.login(c.username(), c.password()), this::onAuth, e -> {
+			loginServer = null;
 			loginScreen.failed();
 			error("Authentification échouée !", "Le serveur est hors ligne ou en maintenance, réessayer plus tard", null);
 		});
@@ -206,19 +248,25 @@ public final class LauncherApp extends Application {
 	private void onAuth(AuthResult result) {
 		switch (result) {
 			case AuthResult.Success s -> {
-				session = s;
+				sessions.put(loginServer, s);
+				useSession(loginServer, s);
 				loggedIn();
 			}
 			case AuthResult.NeedsPseudo n -> loggedIn();
 			case AuthResult.WrongCredentials w -> {
+				loginServer = null;
 				loginScreen.failed();
 				error("Authentification échouée !", "Veuillez vérifier le nom de compte et le mot de passe saisi", null);
 			}
 			case AuthResult.Unreachable u -> {
+				loginServer = null;
 				loginScreen.failed();
 				error("Authentification échouée !", "Le serveur est hors ligne ou en maintenance, réessayer plus tard", null);
 			}
-			case AuthResult.PseudoRejected r -> loginScreen.failed(); // not sent by /login
+			case AuthResult.PseudoRejected r -> {
+				loginServer = null;
+				loginScreen.failed(); // not sent by /login
+			}
 		}
 	}
 
@@ -227,11 +275,13 @@ public final class LauncherApp extends Application {
 		settings.savedPassword = credentials.remember() ? vault.encrypt(credentials.password()) : "";
 		saveSettings();
 		String user = credentials.username();
+		ServerEntry server = loginServer;
 		run(() -> {
 			byte[] png = Http.getBytes("https://krosmocraft.fr/skin/3d?user=" + URLEncoder.encode(user, StandardCharsets.UTF_8));
 			return new Image(new ByteArrayInputStream(png));
 		}, img -> {
 			skin = img;
+			skins.put(server.key(), img);
 			phase2();
 		}, e -> phase2());
 	}
@@ -266,13 +316,16 @@ public final class LauncherApp extends Application {
 	}
 
 	private void askPseudo() {
+		ServerEntry server = loginServer;
+		KrosmoAuthClient auth = new KrosmoAuthClient(server.authUrl());
 		PseudoOverlay[] overlay = new PseudoOverlay[1];
 		overlay[0] = new PseudoOverlay(pseudo -> run(
 				() -> auth.choosePseudo(credentials.username(), credentials.password(), pseudo),
 				result -> {
 					switch (result) {
 						case AuthResult.Success s -> {
-							session = s;
+							sessions.put(server, s);
+							useSession(server, s);
 							overlay[0].close(400, this::afterLogin);
 						}
 						case AuthResult.PseudoRejected r -> {
@@ -335,6 +388,10 @@ public final class LauncherApp extends Application {
 		}
 		mainScreen.show(animate);
 		startMusic();
+		if (loginServer != null) {
+			loginServer = null;
+			followServer(); // server may have changed meanwhile
+		}
 	}
 
 	private void startMusic() {
@@ -415,13 +472,14 @@ public final class LauncherApp extends Application {
 	}
 
 	private void play() {
-		if (prepared == null || session == null) {
+		ServerEntry server = currentServer();
+		AuthResult.Success s = sessions.get(server).orElse(null);
+		if (prepared == null || s == null) {
 			return;
 		}
 		mainScreen.launching();
-		ServerEntry server = window.selectedServer() != null ? window.selectedServer() : server(settings.server);
 		LaunchPipeline.Prepared p = prepared;
-		run(() -> pipeline.launch(p, server, session, settings), this::watchGame, e -> {
+		run(() -> pipeline.launch(p, server, s, settings), this::watchGame, e -> {
 			mainScreen.launchFailed();
 			error("Échec du lancement du jeu !", String.valueOf(e.getMessage()), null);
 		});
@@ -446,8 +504,18 @@ public final class LauncherApp extends Application {
 	}
 
 	private void logout() {
+		sessions.clear();
+		skins.clear();
+		backToLogin();
+	}
+
+	private void backToLogin() {
 		session = null;
+		sessionServer = null;
 		credentials = null;
+		skin = null;
+		profile = ProfileInfo.EMPTY;
+		window.overlayLayer().getChildren().clear();
 		if (music != null) {
 			music.stop();
 		}
@@ -461,8 +529,12 @@ public final class LauncherApp extends Application {
 			then.accept(prepared.manifest());
 			return;
 		}
-		ServerEntry server = window.selectedServer() != null ? window.selectedServer() : server(settings.server);
+		ServerEntry server = currentServer();
 		run(() -> LaunchPipeline.fetchManifest(server), then, e -> then.accept(null));
+	}
+
+	private ServerEntry currentServer() {
+		return window.selectedServer() != null ? window.selectedServer() : server(settings.server);
 	}
 
 	private void error(String title, String message, Runnable onClose) {
