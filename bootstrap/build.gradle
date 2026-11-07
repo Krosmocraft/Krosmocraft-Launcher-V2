@@ -90,6 +90,24 @@ tasks.register('jpackage', Exec) {
 	}
 }
 
+// Windows installer with the old launcher's look (Inno Setup 6, packaging/inno/krosmocraft.iss) around the app image.
+// -PinnoCompiler=<path to ISCC.exe> if Inno Setup is not in the default folder.
+tasks.register('innoInstaller', Exec) {
+	group = 'distribution'
+	dependsOn 'jpackage'
+	def iscc = project.findProperty('innoCompiler') ?: 'C:/Program Files (x86)/Inno Setup 6/ISCC.exe'
+	def out = layout.buildDirectory.dir('inno')
+	doFirst {
+		if (project.findProperty('installerType')) throw new GradleException('innoInstaller needs the default app image: drop -PinstallerType')
+		delete out
+		commandLine iscc, '/Q',
+			"/DAppVersion=${project.property('bootstrap_version')}",
+			"/DAppDir=${layout.buildDirectory.dir('jpackage/Krosmocraft').get().asFile.absolutePath}",
+			"/DOutDir=${out.get().asFile.absolutePath}",
+			file('packaging/inno/krosmocraft.iss').absolutePath
+	}
+}
+
 // dev runs use ./run instead of the real data dir
 tasks.named('run', JavaExec) {
 	if (!System.getenv('KROSMOCRAFT_HOME')) environment 'KROSMOCRAFT_HOME', rootProject.file('run').absolutePath
