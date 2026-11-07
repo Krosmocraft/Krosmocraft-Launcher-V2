@@ -33,6 +33,21 @@ class ServerLoginTest {
 	}
 
 	@Test
+	void buildServer() {
+		List<ServerEntry> list = ServerEntry.parse("""
+				Beta Alice/play.krosmocraft.fr/56202/Beta/24462
+				Build/play.krosmocraft.fr/56204/Build/24464
+				""");
+		ServerEntry build = list.get(1);
+		assertEquals("Build", build.name());
+		assertEquals("build", build.category());
+		assertEquals("live", build.channel());
+		assertEquals(List.of(LIVE, build, ALICE), list);
+		assertEquals("beta", ALICE.category());
+		assertEquals("live", LIVE.category());
+	}
+
+	@Test
 	void liveFirst() {
 		assertEquals("http://launcher.krosmocraft.fr:24454", LIVE.authUrl());
 		assertEquals("live", LIVE.channel());

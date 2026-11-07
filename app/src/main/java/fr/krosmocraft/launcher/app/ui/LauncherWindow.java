@@ -164,8 +164,8 @@ public final class LauncherWindow {
 				Label name = new Label(item.name());
 				name.getStyleClass().add("name");
 				name.setFont(Fx.bold(size));
-				Label badge = new Label(item.channel().toUpperCase());
-				badge.getStyleClass().addAll("badge", item.channel());
+				Label badge = new Label(item.category().toUpperCase());
+				badge.getStyleClass().addAll("badge", item.category());
 				badge.setFont(Fx.bold(size * 0.7));
 				Region gap = new Region();
 				HBox.setHgrow(gap, Priority.ALWAYS);

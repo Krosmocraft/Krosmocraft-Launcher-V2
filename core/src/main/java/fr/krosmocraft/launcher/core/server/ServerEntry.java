@@ -4,6 +4,7 @@ import fr.krosmocraft.launcher.core.net.Http;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -16,8 +17,25 @@ public record ServerEntry(String name, String address, int port, String type, St
 	public static final ServerEntry LIVE_FALLBACK =
 			new ServerEntry("Live", "play.krosmocraft.fr", 56119, "Live", "launcher.krosmocraft.fr", 24454);
 
+	// live / build / beta: badge and list grouping
+	public String category() {
+		if ("Live".equalsIgnoreCase(type)) {
+			return "live";
+		}
+		return "Build".equalsIgnoreCase(type) ? "build" : "beta";
+	}
+
+	// CDN channel: build servers run the live client files
 	public String channel() {
-		return "Live".equalsIgnoreCase(type) ? "live" : "beta";
+		return category().equals("beta") ? "beta" : "live";
+	}
+
+	private int rank() {
+		return switch (category()) {
+			case "live" -> 0;
+			case "build" -> 1;
+			default -> 2;
+		};
 	}
 
 	public String authUrl() {
@@ -61,6 +79,8 @@ public record ServerEntry(String name, String address, int port, String type, St
 				out.add(s);
 			}
 		}
+		// stable: Live, then build servers, then betas, file order kept inside each
+		out.sort(Comparator.comparingInt(ServerEntry::rank));
 		return List.copyOf(out);
 	}
 
