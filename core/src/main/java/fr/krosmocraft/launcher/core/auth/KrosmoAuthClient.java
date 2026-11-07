@@ -5,6 +5,7 @@ import fr.krosmocraft.launcher.core.Json;
 import fr.krosmocraft.launcher.core.net.Http;
 
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import java.io.IOException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -37,6 +38,9 @@ public final class KrosmoAuthClient {
 				case 201 -> new AuthResult.NeedsPseudo();
 				default -> new AuthResult.WrongCredentials();
 			};
+		} catch (IllegalBlockSizeException e) {
+			// too long for one rsa block
+			return new AuthResult.WrongCredentials();
 		} catch (IOException | GeneralSecurityException e) {
 			return new AuthResult.Unreachable(e.getMessage());
 		}

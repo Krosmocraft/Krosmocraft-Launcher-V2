@@ -1,0 +1,55 @@
+.server-choice .list-view {
+    -fx-background-color: rgba(12, 12, 14, 0.94);
+    -fx-background-insets: 0;
+    -fx-background-radius: 8;
+    -fx-border-color: rgba(255, 255, 255, 0.12);
+    -fx-border-radius: 8;
+    -fx-padding: 4;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 16, 0, 0, 4);
+}
+
+.server-choice .list-view:focused {
+    -fx-background-insets: 0;
+}
+
+.server-choice .list-cell {
+    -fx-background-color: transparent;
+    -fx-background-radius: 5;
+    -fx-padding: 6 10 6 10;
+    -fx-cursor: hand;
+}
+
+.server-choice .list-cell .name {
+    -fx-text-fill: rgba(255, 255, 255, 0.7);
+}
+
+.server-choice .list-cell:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+}
+
+.server-choice .list-cell:hover .name,
+.server-choice .list-cell:selected .name {
+    -fx-text-fill: white;
+}
+
+.server-choice .list-cell:selected {
+    -fx-background-color: rgba(255, 255, 255, 0.14);
+}
+
+.server-choice .badge {
+    -fx-background-radius: 4;
+    -fx-padding: 1 6 1 6;
+    -fx-text-fill: white;
+}
+
+.server-choice .badge.live {
+    -fx-background-color: rgba(76, 175, 80, 0.85);
+}
+
+.server-choice .badge.beta {
+    -fx-background-color: rgba(230, 140, 30, 0.85);
+}
+
+.server-choice .scroll-bar {
+    -fx-opacity: 0;
+}

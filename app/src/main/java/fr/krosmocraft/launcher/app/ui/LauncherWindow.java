@@ -3,7 +3,7 @@ package fr.krosmocraft.launcher.app.ui;
 import fr.krosmocraft.launcher.core.server.ServerEntry;
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
-import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -13,9 +13,9 @@ import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.Background;
-import javafx.scene.layout.BackgroundFill;
-import javafx.scene.layout.CornerRadii;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
@@ -149,18 +149,29 @@ public final class LauncherWindow {
 		serverChoice.setVisibleRowCount(5);
 		serverChoice.setOpacity(0);
 		serverChoice.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: transparent;");
+		serverChoice.getStyleClass().add("server-choice");
+		serverChoice.getStylesheets().add(Fx.res("servers.css"));
 		serverChoice.setCellFactory(l -> new ListCell<>() {
 			@Override
 			protected void updateItem(ServerEntry item, boolean empty) {
 				super.updateItem(item, empty);
-				if (item == null) {
-					setText(null);
+				setText(null);
+				if (item == null || empty) {
+					setGraphic(null);
 					return;
 				}
-				setText(item.name());
-				setStyle("-fx-font-size: " + root.geo().h() / 50 * 0.8 + ";");
-				setBackground(new Background(new BackgroundFill(Color.BLACK, CornerRadii.EMPTY, Insets.EMPTY)));
-				setTextFill(Color.WHITE);
+				double size = root.geo().h() / 50 * 0.9;
+				Label name = new Label(item.name());
+				name.getStyleClass().add("name");
+				name.setFont(Fx.bold(size));
+				Label badge = new Label(item.channel().toUpperCase());
+				badge.getStyleClass().addAll("badge", item.channel());
+				badge.setFont(Fx.bold(size * 0.7));
+				Region gap = new Region();
+				HBox.setHgrow(gap, Priority.ALWAYS);
+				HBox row = new HBox(name, gap, badge);
+				row.setAlignment(Pos.CENTER_LEFT);
+				setGraphic(row);
 			}
 		});
 		root.place(serverChoice, g -> box(g.w() / 100, g.h() / 120 * 2.5, g.w() / 4, g.h() / 50));

@@ -8,6 +8,7 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.TextInputControl;
+import javafx.scene.text.Font;
 import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -48,16 +49,23 @@ public final class LoginScreen extends AbsolutePane {
 		place(blur, g -> box(0, 0, g.w(), g.h()));
 		place(logo, g -> box(g.w() / 2 - g.w() / 14, g.h() / 12 + g.h() / 21, g.w() / 8 + g.w() / 50, g.h() / 5 + g.h() / 12));
 
-		username.setTextFormatter(new TextFormatter<String>(c -> c.getControlNewText().length() <= 16 ? c : null));
+		username.setTextFormatter(limit(16));
 		username.setPromptText("Nom de compte");
 		username.setText(savedUser);
 		field(username, g -> box(g.w() / 2 - g.w() / 7, g.h() / 2 - g.h() / 10 + g.h() / 21 - g.h() / 100,
 				g.w() / 4 + g.w() / 28, g.h() / 12));
-		password.setTextFormatter(new TextFormatter<String>(c -> c.getControlNewText().length() <= 20 ? c : null));
+		password.setTextFormatter(limit(Integer.MAX_VALUE));
 		password.setPromptText("Mot de passe");
 		password.setText(savedPassword);
 		field(password, g -> box(g.w() / 2 - g.w() / 7, g.h() / 2 + g.h() / 21 - g.h() / 100,
 				g.w() / 4 + g.w() / 28, g.h() / 12));
+		// comfortaa has no dot glyph
+		font(password, g -> password.getText().isEmpty() ? Fx.regular(g.fs2()) : Font.font("Arial", g.fs2()));
+		password.textProperty().addListener((o, a, b) -> {
+			if (a.isEmpty() != b.isEmpty()) {
+				requestLayout();
+			}
+		});
 
 		rememberMe.setAlignment(Pos.CENTER_LEFT);
 		rememberMe.setOpacity(0.4);
@@ -162,6 +170,18 @@ public final class LoginScreen extends AbsolutePane {
 
 	public String username() {
 		return username.getText();
+	}
+
+	private static TextFormatter<String> limit(int max) {
+		return new TextFormatter<>(c -> {
+			if (c.getText().length() > 1) {
+				// paste, drop spaces and cut what doesn't fit
+				String text = c.getText().strip();
+				int room = max - (c.getControlText().length() - (c.getRangeEnd() - c.getRangeStart()));
+				c.setText(text.substring(0, Math.max(0, Math.min(text.length(), room))));
+			}
+			return c.getControlNewText().length() <= max ? c : null;
+		});
 	}
 
 	private void field(TextInputControl f, java.util.function.Function<Geo, Box> rule) {
