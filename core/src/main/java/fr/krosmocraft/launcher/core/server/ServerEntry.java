@@ -16,6 +16,7 @@ public record ServerEntry(String name, String address, int port, String type) {
 
 	public static List<ServerEntry> fetch(String url) {
 		List<ServerEntry> out = new ArrayList<>();
+		out.add(LIVE_FALLBACK);
 		try {
 			for (String line : Http.getString(url).lines().toList()) {
 				String[] p = line.trim().split("/");
@@ -28,9 +29,7 @@ public record ServerEntry(String name, String address, int port, String type) {
 				}
 			}
 		} catch (IOException ignored) {
-		}
-		if (out.isEmpty()) {
-			out.add(LIVE_FALLBACK);
+			// offline: Live only
 		}
 		return List.copyOf(out);
 	}
