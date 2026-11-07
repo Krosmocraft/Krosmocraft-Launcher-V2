@@ -1,0 +1,20 @@
+plugins {
+	id 'java-library'
+}
+
+dependencies {
+	api "com.google.code.gson:gson:${gson_version}"
+}
+
+tasks.named('test') {
+	useJUnitPlatform { excludeTags 'network' }
+}
+
+// ./gradlew :core:networkTest
+tasks.register('networkTest', Test) {
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform { includeTags 'network' }
+	testLogging { showStandardStreams = true; exceptionFormat = 'full' }
+}

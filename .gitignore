@@ -1,0 +1,8 @@
+.gradle/
+build/
+out/
+.idea/
+*.iml
+.DS_Store
+hs_err_*.log
+*.key
