@@ -1,0 +1,177 @@
+/* Sizes in em: the root font size follows the window height (LauncherWindow), so everything scales together. */
+
+.root {
+	-k-bg: #101014;
+	-k-panel: rgba(12, 12, 16, 0.78);
+	-k-text: #f2efe6;
+	-k-muted: #a8a49a;
+	-k-accent: #e0a526;
+	-k-accent-hover: #f0b93a;
+	-k-danger: #e05a4f;
+	-fx-font-family: "Comfortaa";
+	-fx-text-fill: -k-text;
+}
+
+.window {
+	-fx-background-color: -k-bg;
+	-fx-background-radius: 9;
+}
+.window:maximized {
+	-fx-background-radius: 0;
+}
+
+.label, .check-box, .hyperlink {
+	-fx-text-fill: -k-text;
+}
+.muted {
+	-fx-text-fill: -k-muted;
+}
+.error {
+	-fx-text-fill: -k-danger;
+}
+
+/* ---- title bar ---- */
+.title-bar {
+	-fx-padding: 0.4em 0.6em;
+	-fx-spacing: 0.3em;
+	-fx-alignment: center-left;
+	-fx-background-color: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+}
+.title-bar .title {
+	-fx-font-weight: bold;
+	-fx-opacity: 0.85;
+}
+.chrome-button {
+	-fx-background-color: transparent;
+	-fx-padding: 0.4em 0.7em;
+	-fx-background-radius: 4;
+}
+.chrome-button:hover {
+	-fx-background-color: rgba(255, 255, 255, 0.12);
+}
+.chrome-button.close:hover {
+	-fx-background-color: -k-danger;
+}
+
+/* ---- controls ---- */
+.text-field, .password-field, .combo-box {
+	-fx-background-color: rgba(255, 255, 255, 0.08);
+	-fx-background-radius: 6;
+	-fx-text-fill: -k-text;
+	-fx-prompt-text-fill: -k-muted;
+	-fx-padding: 0.7em 0.9em;
+	-fx-pref-width: 22em;
+}
+.text-field:focused, .password-field:focused {
+	-fx-background-color: rgba(255, 255, 255, 0.14);
+}
+.button {
+	-fx-background-color: rgba(255, 255, 255, 0.10);
+	-fx-text-fill: -k-text;
+	-fx-background-radius: 6;
+	-fx-padding: 0.7em 1.4em;
+	-fx-cursor: hand;
+}
+.button:hover {
+	-fx-background-color: rgba(255, 255, 255, 0.18);
+}
+.button.primary {
+	-fx-background-color: -k-accent;
+	-fx-text-fill: #1a1408;
+	-fx-font-weight: bold;
+}
+.button.primary:hover {
+	-fx-background-color: -k-accent-hover;
+}
+.button.play {
+	-fx-font-size: 1.5em;
+	-fx-padding: 0.6em 2.6em;
+}
+.button.link-button {
+	-fx-background-color: transparent;
+	-fx-text-fill: -k-muted;
+}
+.progress-bar > .bar {
+	-fx-background-color: -k-accent;
+	-fx-background-insets: 0;
+	-fx-background-radius: 4;
+}
+.progress-bar > .track {
+	-fx-background-color: rgba(255, 255, 255, 0.10);
+	-fx-background-radius: 4;
+}
+
+/* ---- screens ---- */
+.login {
+	-fx-spacing: 2em;
+	-fx-padding: 0 0 3em 0;
+}
+.login .form {
+	-fx-spacing: 0.8em;
+	-fx-padding: 1.6em;
+	-fx-background-color: -k-panel;
+	-fx-background-radius: 10;
+}
+.login .links {
+	-fx-spacing: 1em;
+}
+
+.home-top {
+	-fx-padding: 1.2em 2em;
+}
+.home .player {
+	-fx-font-size: 1.6em;
+	-fx-font-weight: bold;
+}
+.home-bottom {
+	-fx-spacing: 0.6em;
+	-fx-padding: 1.5em 2em;
+	-fx-background-color: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+}
+.home .actions {
+	-fx-spacing: 0.8em;
+}
+
+.presets {
+	-fx-spacing: 1em;
+	-fx-padding: 1em 2em 2em 2em;
+}
+.presets .heading {
+	-fx-font-size: 2em;
+	-fx-font-weight: bold;
+}
+.presets .cards {
+	-fx-spacing: 1.2em;
+}
+.card {
+	-fx-spacing: 0.6em;
+	-fx-padding: 0.9em;
+	-fx-pref-width: 20em;
+	-fx-background-color: -k-panel;
+	-fx-background-radius: 10;
+	-fx-border-color: transparent;
+	-fx-border-width: 2;
+	-fx-border-radius: 10;
+}
+.card.current {
+	-fx-border-color: -k-accent;
+}
+.card .card-title {
+	-fx-font-size: 1.25em;
+	-fx-font-weight: bold;
+}
+.badge {
+	-fx-padding: 0.2em 0.6em;
+	-fx-background-radius: 999;
+	-fx-font-size: 0.85em;
+	-fx-text-fill: #101014;
+}
+.impact-low {
+	-fx-background-color: #6cc56c;
+}
+.impact-medium {
+	-fx-background-color: #e0c341;
+}
+.impact-high {
+	-fx-background-color: #e07a41;
+}

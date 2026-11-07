@@ -1,0 +1,55 @@
+import java.security.MessageDigest
+
+plugins {
+	id 'application'
+}
+
+def javafxPlatform = {
+	def os = System.getProperty('os.name').toLowerCase()
+	def arm = System.getProperty('os.arch').toLowerCase() in ['aarch64', 'arm64']
+	if (os.contains('win')) return 'win'
+	if (os.contains('mac')) return arm ? 'mac-aarch64' : 'mac'
+	return arm ? 'linux-aarch64' : 'linux'
+}()
+
+dependencies {
+	implementation project(':core')
+	['base', 'graphics', 'controls', 'media'].each {
+		implementation "org.openjfx:javafx-${it}:${javafx_version}:${javafxPlatform}"
+	}
+}
+
+application {
+	// must not extend Application, javafx won't start from the classpath otherwise
+	mainClass = 'fr.krosmocraft.launcher.app.Main'
+	applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
+}
+
+tasks.register('launcherBundle') {
+	group = 'distribution'
+	dependsOn 'jar'
+	def out = layout.buildDirectory.dir('launcher-bundle')
+	def jarFile = tasks.named('jar').flatMap { it.archiveFile }
+	def runtime = configurations.runtimeClasspath
+	def cdn = project.property('launcher_cdn')
+	def version = project.version.toString()
+	def mainClass = application.mainClass
+	inputs.files(jarFile, runtime)
+	outputs.dir(out)
+
+	doLast {
+		def dir = out.get().asFile
+		dir.deleteDir()
+		dir.mkdirs()
+		// javafx comes with the installed runtime
+		def jars = [jarFile.get().asFile] + runtime.files.findAll { !it.name.startsWith('javafx-') }
+		def lines = ["version=${version}", "mainClass=${mainClass.get()}", "minBootstrap=1"]
+		jars.each { f ->
+			def target = new File(dir, f.name)
+			target.bytes = f.bytes
+			def sha1 = MessageDigest.getInstance('SHA-1').digest(f.bytes).encodeHex().toString()
+			lines << "file=${f.name} ${sha1} ${f.length()} ${cdn}${f.name}"
+		}
+		new File(dir, 'manifest.txt').text = lines.join('\n') + '\n'
+	}
+}
