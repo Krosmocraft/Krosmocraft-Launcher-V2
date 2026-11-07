@@ -282,7 +282,14 @@ public final class LauncherApp extends Application {
 		}, img -> {
 			skin = img;
 			skins.put(server.key(), img);
-			phase2();
+			if (session == null) {
+				phase2();
+				return;
+			}
+			// let the success check show
+			PauseTransition p = new PauseTransition(Duration.millis(1000));
+			p.setOnFinished(e -> phase2());
+			p.play();
 		}, e -> phase2());
 	}
 

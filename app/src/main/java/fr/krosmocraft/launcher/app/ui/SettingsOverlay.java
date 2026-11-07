@@ -278,8 +278,8 @@ public final class SettingsOverlay extends Overlay {
 		resolution.setVisibleRowCount(5);
 		resolution.setBorder(new Border(new BorderStroke(Color.WHITE, BorderStrokeStyle.SOLID, new CornerRadii(4), BorderWidths.DEFAULT)));
 		resolution.setStyle("-fx-background-color: black; -fx-text-fill: white;");
-		resolution.setCellFactory(l -> resolutionCell());
-		resolution.setButtonCell(resolutionCell());
+		resolution.setCellFactory(l -> resolutionCell(true));
+		resolution.setButtonCell(resolutionCell(false));
 		resolution.valueProperty().addListener((o, a, b) -> settings.gameSize = b);
 		add(resolution, g -> box(g.r(10) * 32 + g.r(5), g.r(10) * 21 + g.r(5), g.r(10) * 13, g.r(10) * 3), 0.8);
 
@@ -448,14 +448,16 @@ public final class SettingsOverlay extends Overlay {
 		tab.onLayout(g -> t.setWindowWidth(g.w()));
 	}
 
-	private ListCell<String> resolutionCell() {
+	private ListCell<String> resolutionCell(boolean filled) {
 		return new ListCell<>() {
 			@Override
 			protected void updateItem(String item, boolean empty) {
 				super.updateItem(item, empty);
 				setText(item);
 				setStyle(tab.geo().small() ? "-fx-font-size:13" : "-fx-font-size:25");
-				setBackground(new Background(new BackgroundFill(Color.BLACK, CornerRadii.EMPTY, Insets.EMPTY)));
+				if (filled) {
+					setBackground(new Background(new BackgroundFill(Color.BLACK, CornerRadii.EMPTY, Insets.EMPTY)));
+				}
 				setTextFill(Color.WHITE);
 			}
 		};

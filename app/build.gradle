@@ -70,3 +70,13 @@ tasks.named('test') {
 tasks.named('run', JavaExec) {
 	if (!System.getenv('KROSMOCRAFT_HOME')) environment 'KROSMOCRAFT_HOME', rootProject.file('run').absolutePath
 }
+
+// javafx as modules like the installed runtime
+tasks.withType(JavaExec).configureEach { task ->
+	task.doFirst {
+		def fx = task.classpath.filter { it.name.startsWith('javafx-') }
+		task.classpath = task.classpath - fx
+		task.jvmArgs '--module-path', fx.asPath, '--add-modules', 'javafx.controls,javafx.media',
+				'--enable-native-access=javafx.graphics,javafx.media'
+	}
+}
