@@ -1,0 +1,91 @@
+plugins {
+	id 'application'
+}
+
+// javafx from the jmods so the dlls end up in runtime/bin (the maven jars unpack them to ~/.openjfx)
+def jfxPlatform = {
+	def os = System.getProperty('os.name').toLowerCase()
+	def arch = System.getProperty('os.arch').toLowerCase() in ['aarch64', 'arm64'] ? 'aarch64' : 'x64'
+	if (os.contains('win')) return "windows-${arch}"
+	if (os.contains('mac')) return "osx-${arch}"
+	return "linux-${arch}"
+}()
+def jmodsDir = layout.buildDirectory.dir("javafx-jmods/${javafx_version}-${jfxPlatform}")
+
+def jmodsZip = layout.buildDirectory.file("javafx-jmods/openjfx-${javafx_version}-${jfxPlatform}.zip")
+
+tasks.register('downloadJavafxJmods') {
+	def zipUrl = "https://download2.gluonhq.com/openjfx/${javafx_version}/openjfx-${javafx_version}_${jfxPlatform}_bin-jmods.zip"
+	outputs.file(jmodsZip)
+	doLast {
+		def z = jmodsZip.get().asFile
+		z.parentFile.mkdirs()
+		new URI(zipUrl).toURL().withInputStream { i -> z.withOutputStream { it << i } }
+	}
+}
+
+tasks.register('javafxJmods', Sync) {
+	dependsOn 'downloadJavafxJmods'
+	from(zipTree(jmodsZip)) {
+		include '**/*.jmod'
+		eachFile { it.path = it.name } // flatten javafx-jmods-x.y.z/
+	}
+	includeEmptyDirs = false
+	into jmodsDir
+}
+
+application {
+	mainClass = 'fr.krosmocraft.bootstrap.Bootstrap'
+	applicationName = 'Krosmocraft'
+}
+
+// -PinstallerType=exe|dmg|deb (exe needs WiX), default is an app image
+def jpackageTool = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+	.map { it.metadata.installationPath.file('bin/jpackage').asFile.absolutePath }
+
+tasks.register('jpackage', Exec) {
+	group = 'distribution'
+	dependsOn 'installDist', 'javafxJmods'
+	def type = project.findProperty('installerType') ?: 'app-image'
+	def input = layout.buildDirectory.dir('install/Krosmocraft/lib')
+	def dest = layout.buildDirectory.dir('jpackage')
+	def os = System.getProperty('os.name').toLowerCase()
+	def icon = os.contains('win') ? 'packaging/krosmocraft.ico'
+		: os.contains('mac') ? 'packaging/krosmocraft.icns' : 'packaging/krosmocraft.png'
+
+	doFirst {
+		delete dest
+		def args = [
+			jpackageTool.get(),
+			'--type', type,
+			'--name', 'Krosmocraft',
+			'--app-version', project.property('bootstrap_version'),
+			'--vendor', 'Krosmocraft',
+			'--description', 'Launcher Krosmocraft',
+			'--input', input.get().asFile.absolutePath,
+			'--main-jar', "bootstrap-${project.version}.jar",
+			'--main-class', application.mainClass.get(),
+			'--dest', dest.get().asFile.absolutePath,
+			'--module-path', jmodsDir.get().asFile.absolutePath,
+			// adding a module later means a new installer
+			'--add-modules', [
+				'java.base', 'java.desktop', 'java.logging', 'java.net.http', 'java.xml', 'java.naming',
+				'java.management', 'java.scripting', 'jdk.crypto.ec', 'jdk.unsupported', 'jdk.jsobject',
+				'jdk.zipfs', 'jdk.localedata',
+				'javafx.base', 'javafx.graphics', 'javafx.controls', 'javafx.media',
+			].join(','),
+			'--java-options', '--enable-native-access=ALL-UNNAMED,javafx.graphics,javafx.media',
+		]
+		if (file(icon).exists()) args += ['--icon', file(icon).absolutePath]
+		if (os.contains('win') && type != 'app-image') {
+			args += ['--win-menu', '--win-shortcut', '--win-per-user-install', '--win-dir-chooser',
+					 '--win-menu-group', 'Krosmocraft',
+					 // never change, lets a new installer upgrade the old one
+					 '--win-upgrade-uuid', '6b1f4f0e-7c2a-4f55-9a43-0d9c2b6f1a11']
+		}
+		if (os.contains('linux') && type != 'app-image') {
+			args += ['--linux-shortcut', '--linux-app-category', 'Game']
+		}
+		commandLine args
+	}
+}
