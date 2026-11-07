@@ -2,6 +2,7 @@ package fr.krosmocraft.bootstrap;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -23,6 +24,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
 import java.util.function.DoubleConsumer;
+import java.util.function.LongConsumer;
 import java.util.stream.Stream;
 
 final class LauncherUpdater {
@@ -72,16 +74,21 @@ final class LauncherUpdater {
 			throw new IOException("Cette version du launcher est trop ancienne : réinstallez-le depuis krosmocraft.fr");
 		}
 
-		long total = manifest.files().stream().mapToLong(ManifestFile::size).sum();
-		long done = 0;
-		Files.createDirectories(dir);
+		List<ManifestFile> missing = new ArrayList<>();
 		for (ManifestFile f : manifest.files()) {
 			Path target = inside(f.name());
 			if (!Files.isRegularFile(target) || Files.size(target) != f.size() || !f.sha1().equalsIgnoreCase(sha1(target))) {
-				download(f, target);
+				missing.add(f);
 			}
-			done += f.size();
-			progress.accept(total == 0 ? 1 : (double) done / total);
+		}
+		long total = Math.max(1, missing.stream().mapToLong(ManifestFile::size).sum());
+		long[] done = {0};
+		Files.createDirectories(dir);
+		for (ManifestFile f : missing) {
+			download(f, inside(f.name()), n -> {
+				done[0] += n;
+				progress.accept(Math.min(1, (double) done[0] / total));
+			});
 		}
 
 		// remove old jars
@@ -108,11 +115,18 @@ final class LauncherUpdater {
 		return new Installed(m.version(), m.mainClass(), jars);
 	}
 
-	private void download(ManifestFile f, Path target) throws IOException {
+	private void download(ManifestFile f, Path target, LongConsumer bytesRead) throws IOException {
 		Path tmp = target.resolveSibling(target.getFileName() + ".part");
 		HttpRequest req = HttpRequest.newBuilder(URI.create(f.url())).timeout(Duration.ofMinutes(5))
 				.header("User-Agent", "KrosmocraftBootstrap/" + Bootstrap.VERSION).build();
-		send(req, HttpResponse.BodyHandlers.ofFile(tmp));
+		try (InputStream in = send(req, HttpResponse.BodyHandlers.ofInputStream()).body();
+			 OutputStream out = Files.newOutputStream(tmp)) {
+			byte[] buf = new byte[64 * 1024];
+			for (int n; (n = in.read(buf)) >= 0; ) {
+				out.write(buf, 0, n);
+				bytesRead.accept(n);
+			}
+		}
 		if (!f.sha1().equalsIgnoreCase(sha1(tmp))) {
 			Files.deleteIfExists(tmp);
 			throw new IOException("Fichier corrompu : " + f.name());

@@ -1,43 +1,54 @@
 package fr.krosmocraft.bootstrap;
 
 import javax.imageio.ImageIO;
-import javax.swing.BorderFactory;
-import javax.swing.ImageIcon;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
-import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Graphics;
 import java.awt.Image;
 import java.lang.reflect.InvocationTargetException;
 
 final class Splash {
 
+	private static final int W = 795;
+	private static final int H = 448;
+	private static final int BAR = 10;
+
 	private final JFrame frame = new JFrame("Krosmocraft");
-	private final JProgressBar bar = new JProgressBar(0, 1000);
+	private final Image logo = image("logo.png");
+	private volatile boolean visible;
+	private volatile int percent;
 
 	private Splash() {
-		JPanel root = new JPanel(new BorderLayout(0, 12));
-		root.setBackground(new Color(16, 16, 20));
-		root.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
-		Image logo = image("logo.png");
-		if (logo != null) {
-			root.add(new JLabel(new ImageIcon(logo.getScaledInstance(-1, 160, Image.SCALE_SMOOTH))), BorderLayout.CENTER);
-		}
-		bar.setIndeterminate(true);
-		root.add(bar, BorderLayout.SOUTH);
-		frame.setUndecorated(true);
-		frame.setContentPane(root);
-		frame.setSize(420, 260);
-		frame.setLocationRelativeTo(null);
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		Image icon = image("favicon.png");
 		if (icon != null) {
 			frame.setIconImage(icon);
 		}
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.setSize(W, H);
+		frame.setLocationRelativeTo(null);
+		frame.setUndecorated(true);
+		frame.setBackground(new Color(0, 0, 0, 0));
+		JComponent panel = new JComponent() {
+			@Override
+			protected void paintComponent(Graphics g) {
+				if (!visible) {
+					return;
+				}
+				if (logo != null) {
+					g.drawImage(logo, 0, 0, W, H, this);
+				}
+				int w = getWidth();
+				int y = getHeight() - BAR;
+				g.setColor(Color.GRAY);
+				g.fillRect(0, y, w, BAR);
+				g.setColor(Color.CYAN);
+				g.fillRect(0, y, (int) (w * (percent * 0.01d)), BAR);
+			}
+		};
+		frame.setContentPane(panel);
 	}
 
 	static Splash show() throws InterruptedException, InvocationTargetException {
@@ -50,10 +61,13 @@ final class Splash {
 	}
 
 	void progress(double fraction) {
-		SwingUtilities.invokeLater(() -> {
-			bar.setIndeterminate(false);
-			bar.setValue((int) (fraction * 1000));
-		});
+		int p = (int) Math.max(0, Math.min(100, fraction * 100));
+		if (visible && p == percent) {
+			return;
+		}
+		percent = p;
+		visible = true;
+		frame.repaint();
 	}
 
 	void fail(String message) {
