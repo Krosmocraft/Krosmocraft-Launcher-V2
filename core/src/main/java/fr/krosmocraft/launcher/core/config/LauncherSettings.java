@@ -6,20 +6,40 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
 
 public final class LauncherSettings {
 
 	public String username = "";
-	public boolean rememberMe = true;
+	public boolean rememberMe = false;
+	public String savedPassword = "";
+
 	public int memoryMb = 4096;
-	public List<String> jvmArgs = new ArrayList<>();
+	public String jvmArgs = "";
+	public String gameSize = "854x480";
+	public boolean fullscreen = false;
+	public boolean borderless = false;
+
 	public String server = "Live";
 	public boolean muted = false;
 
 	public String presetId;
 	public String appliedPreset;
+
+	public int windowWidth() {
+		return part(0);
+	}
+
+	public int windowHeight() {
+		return part(1);
+	}
+
+	private int part(int i) {
+		try {
+			return Integer.parseInt(gameSize.split("x")[i]);
+		} catch (RuntimeException e) {
+			return 0;
+		}
+	}
 
 	public static LauncherSettings load(Path file) {
 		try {

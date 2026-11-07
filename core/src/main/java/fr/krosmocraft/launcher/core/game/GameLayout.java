@@ -8,6 +8,10 @@ public record GameLayout(Path root) {
 		return root.resolve("launcher.json");
 	}
 
+	public Path keyFile() {
+		return root.resolve("launcher.key");
+	}
+
 	public Path logsDir() {
 		return root.resolve("logs");
 	}

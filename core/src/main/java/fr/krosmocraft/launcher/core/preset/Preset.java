@@ -14,7 +14,8 @@ public record Preset(
 		String screenshot,
 		List<ManifestFile> files,
 		List<ManifestFile> configFiles,
-		Map<String, String> options) {
+		Map<String, String> options,
+		int minMemoryMb) {
 
 	public enum FpsImpact { LOW, MEDIUM, HIGH }
 
