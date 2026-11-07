@@ -1,21 +1,21 @@
 package fr.krosmocraft.launcher.app.ui;
 
+import fr.krosmocraft.launcher.core.server.ServerEntry;
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
-import javafx.beans.property.BooleanProperty;
-import javafx.beans.property.SimpleBooleanProperty;
+import javafx.geometry.Insets;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Control;
 import javafx.scene.control.Label;
-import javafx.scene.image.Image;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.StackPane;
+import javafx.scene.control.ListCell;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.CornerRadii;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
@@ -25,98 +25,172 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
-import java.util.Objects;
+import java.util.List;
+import java.util.function.Consumer;
+
+import static fr.krosmocraft.launcher.app.ui.AbsolutePane.box;
 
 public final class LauncherWindow {
 
-	public static final double WIDTH = 1067;
-	public static final double HEIGHT = 600;
-	private static final double BASE_FONT = 13;
-
 	private final Stage stage;
-	private final StackPane root = new StackPane();
-	private final BorderPane frame = new BorderPane();
-	private final BooleanProperty maximized = new SimpleBooleanProperty();
+	private final AbsolutePane root = new AbsolutePane();
+	private final AbsolutePane screenLayer = new AbsolutePane();
+	private final AbsolutePane overlayLayer = new AbsolutePane();
+	private final Label title = Fx.label("Krosmocraft");
+	private final ComboBox<ServerEntry> serverChoice = new ComboBox<>();
 	private Rectangle2D restoreBounds;
-	private MediaPlayer backgroundPlayer;
+	private boolean maximized;
+	private MediaPlayer video;
 
 	public LauncherWindow(Stage stage) {
 		this.stage = stage;
+		Fx.loadFonts();
 		boolean transparent = Platform.isSupported(ConditionalFeature.TRANSPARENT_WINDOW);
 		stage.initStyle(transparent ? StageStyle.TRANSPARENT : StageStyle.UNDECORATED);
-		stage.setTitle("Krosmocraft");
-		stage.getIcons().add(new Image(res("favicon.png")));
-		stage.setMinWidth(WIDTH);
-		stage.setMinHeight(HEIGHT);
-
-		root.getStyleClass().add("window");
-		root.getChildren().add(frame);
-		frame.setTop(titleBar());
+		stage.setResizable(false);
+		stage.setTitle("Launcher Krosmocraft");
+		stage.getIcons().add(Fx.image("favicon.png"));
+		root.setPickOnBounds(true);
+		root.setStyle("-fx-background-color: transparent;");
 
 		Rectangle clip = new Rectangle();
-		clip.widthProperty().bind(root.widthProperty());
-		clip.heightProperty().bind(root.heightProperty());
-		clip.arcWidthProperty().bind(Bindings.when(maximized).then(0).otherwise(18));
-		clip.arcHeightProperty().bind(clip.arcWidthProperty());
 		root.setClip(clip);
-		maximized.addListener((obs, was, now) -> root.pseudoClassStateChanged(
-				javafx.css.PseudoClass.getPseudoClass("maximized"), now));
+		root.onLayout(g -> {
+			clip.setWidth(g.w());
+			clip.setHeight(g.h());
+			clip.setArcWidth(maximized ? 0 : 15);
+			clip.setArcHeight(maximized ? 0 : 15);
+		});
 
-		root.styleProperty().bind(Bindings.createStringBinding(() -> {
-			double h = stage.getHeight();
-			double size = (Double.isNaN(h) || h <= 0 ? HEIGHT : h) / HEIGHT * BASE_FONT;
-			return String.format(java.util.Locale.ROOT, "-fx-font-size: %.2fpx;", size);
-		}, stage.heightProperty()));
+		playVideo();
+		root.place(screenLayer, g -> box(0, 0, g.w(), g.h()));
+		buildChrome();
+		root.place(overlayLayer, g -> box(0, 0, g.w(), g.h()));
 
-		Scene scene = new Scene(root, WIDTH, HEIGHT);
+		Scene scene = new Scene(root, Geo.BASE_W, Geo.BASE_H);
 		scene.setFill(transparent ? Color.TRANSPARENT : Color.BLACK);
-		scene.getStylesheets().add(res("launcher.css"));
-		javafx.scene.text.Font.loadFont(res("Comfortaa-Regular.ttf"), 12);
-		javafx.scene.text.Font.loadFont(res("Comfortaa-Bold.ttf"), 12);
+		enableDrag(scene);
 		stage.setScene(scene);
-		stage.centerOnScreen();
-	}
-
-	public void show() {
-		stage.show();
+		stage.setWidth(Geo.BASE_W);
+		stage.setHeight(Geo.BASE_H);
+		center();
+		stage.setOnCloseRequest(e -> Platform.exit());
 	}
 
 	public Stage stage() {
 		return stage;
 	}
 
-	public void setContent(Node content) {
-		frame.setCenter(content);
+	public AbsolutePane screenLayer() {
+		return screenLayer;
 	}
 
-	public void playBackground(boolean muted) {
+	public AbsolutePane overlayLayer() {
+		return overlayLayer;
+	}
+
+	public void show() {
+		stage.show();
+	}
+
+	public void setServers(List<ServerEntry> servers, ServerEntry selected, Consumer<ServerEntry> onChange) {
+		serverChoice.setOnAction(null);
+		serverChoice.getItems().setAll(servers);
+		serverChoice.setValue(selected);
+		updateTitle(selected);
+		serverChoice.setOnAction(e -> {
+			ServerEntry s = serverChoice.getValue();
+			if (s != null) {
+				updateTitle(s);
+				onChange.accept(s);
+			}
+		});
+	}
+
+	public ServerEntry selectedServer() {
+		return serverChoice.getValue();
+	}
+
+	private void updateTitle(ServerEntry s) {
+		title.setText("Krosmocraft" + (s == null || s.name().equals("Live") ? "" : " [" + s.name() + "]"));
+	}
+
+	private void playVideo() {
 		try {
-			backgroundPlayer = new MediaPlayer(new Media(res("background.mp4")));
-			backgroundPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-			backgroundPlayer.setMute(muted);
-			MediaView view = new MediaView(backgroundPlayer);
+			video = new MediaPlayer(new Media(Fx.res("background.mp4")));
+			MediaView view = new MediaView(video);
 			view.setPreserveRatio(false);
-			view.fitWidthProperty().bind(root.widthProperty());
-			view.fitHeightProperty().bind(root.heightProperty());
-			root.getChildren().addFirst(view);
-			backgroundPlayer.play();
+			root.place(view, g -> box(0, 0, g.w(), g.h()));
+			root.onLayout(g -> {
+				view.setFitWidth(g.w());
+				view.setFitHeight(g.h());
+			});
+			video.setOnReady(() -> {
+				video.setCycleCount(MediaPlayer.INDEFINITE);
+				video.play();
+			});
 		} catch (RuntimeException e) {
+			// no media support (linux without gstreamer), black background
+			System.err.println("Background video unavailable: " + e);
 		}
 	}
 
-	public void setMuted(boolean muted) {
-		if (backgroundPlayer != null) {
-			backgroundPlayer.setMute(muted);
-		}
+	private void buildChrome() {
+		title.setStyle("-fx-background-color: transparent; -fx-text-fill: white;");
+		root.place(title, g -> box(g.w() / 100, g.h() / 120, g.w() / 4, g.h() / 50));
+		root.font(title, g -> Fx.bold(g.fs2()));
+		Fx.glowHover(title, 0.9);
+		title.setOnMouseClicked(e -> {
+			if (!serverChoice.getItems().isEmpty()) {
+				serverChoice.show();
+			}
+		});
+
+		serverChoice.setVisibleRowCount(5);
+		serverChoice.setOpacity(0);
+		serverChoice.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: transparent;");
+		serverChoice.setCellFactory(l -> new ListCell<>() {
+			@Override
+			protected void updateItem(ServerEntry item, boolean empty) {
+				super.updateItem(item, empty);
+				if (item == null) {
+					setText(null);
+					return;
+				}
+				setText(item.name());
+				setStyle("-fx-font-size: " + root.geo().h() / 50 * 0.8 + ";");
+				setBackground(new Background(new BackgroundFill(Color.BLACK, CornerRadii.EMPTY, Insets.EMPTY)));
+				setTextFill(Color.WHITE);
+			}
+		});
+		root.place(serverChoice, g -> box(g.w() / 100, g.h() / 120 * 2.5, g.w() / 4, g.h() / 50));
+
+		chromeButton("close.png", g -> g.w() - g.w() / 30, Platform::exit);
+		chromeButton("reduce.png", g -> g.w() - g.w() / 10, () -> stage.setIconified(true));
+		chromeButton("maxi.png", g -> g.w() - g.w() / 15, this::toggleMaximized);
+	}
+
+	private void chromeButton(String icon, java.util.function.ToIntFunction<Geo> x, Runnable action) {
+		ImageView img = Fx.view(icon);
+		Button b = new Button(null, img);
+		b.setBackground(null);
+		b.setOnMouseEntered(e -> b.setOpacity(0.8));
+		b.setOnMouseExited(e -> b.setOpacity(1));
+		b.setOnAction(e -> action.run());
+		root.place(b, g -> box(x.applyAsInt(g), 2, g.h() / 20, g.h() / 40));
+		root.onLayout(g -> {
+			img.setFitWidth(g.h() / 40);
+			img.setFitHeight(g.h() / 40);
+		});
 	}
 
 	public void toggleMaximized() {
-		if (maximized.get()) {
+		if (maximized) {
 			stage.setX(restoreBounds.getMinX());
 			stage.setY(restoreBounds.getMinY());
-			stage.setWidth(restoreBounds.getWidth());
-			stage.setHeight(restoreBounds.getHeight());
-			maximized.set(false);
+			stage.setWidth(Geo.BASE_W);
+			stage.setHeight(Geo.BASE_H);
+			maximized = false;
 		} else {
 			restoreBounds = new Rectangle2D(stage.getX(), stage.getY(), stage.getWidth(), stage.getHeight());
 			Screen screen = Screen.getScreensForRectangle(restoreBounds).stream().findFirst().orElse(Screen.getPrimary());
@@ -125,53 +199,39 @@ public final class LauncherWindow {
 			stage.setY(b.getMinY());
 			stage.setWidth(b.getWidth());
 			stage.setHeight(b.getHeight());
-			maximized.set(true);
+			maximized = true;
 		}
+		root.requestLayout();
 	}
 
-	private Node titleBar() {
-		Label title = new Label("Krosmocraft");
-		title.getStyleClass().add("title");
-		Region spacer = new Region();
-		HBox.setHgrow(spacer, Priority.ALWAYS);
-		Button min = chromeButton("reduce.png", () -> stage.setIconified(true));
-		Button max = chromeButton("maxi.png", this::toggleMaximized);
-		Button close = chromeButton("close.png", Platform::exit);
-		close.getStyleClass().add("close");
-		HBox bar = new HBox(title, spacer, min, max, close);
-		bar.getStyleClass().add("title-bar");
+	private void center() {
+		Rectangle2D b = Screen.getPrimary().getVisualBounds();
+		stage.setX(b.getMinX() + (b.getWidth() - Geo.BASE_W) / 2);
+		stage.setY(b.getMinY() + (b.getHeight() - Geo.BASE_H) / 2);
+	}
 
-		double[] offset = new double[2];
-		bar.setOnMousePressed(e -> {
-			offset[0] = stage.getX() - e.getScreenX();
-			offset[1] = stage.getY() - e.getScreenY();
+	private void enableDrag(Scene scene) {
+		double[] delta = new double[2];
+		boolean[] dragging = new boolean[1];
+		scene.setOnMousePressed(e -> {
+			dragging[0] = !maximized && !isInput(e.getPickResult().getIntersectedNode());
+			delta[0] = stage.getX() - e.getScreenX();
+			delta[1] = stage.getY() - e.getScreenY();
 		});
-		bar.setOnMouseDragged(e -> {
-			if (!maximized.get()) {
-				stage.setX(e.getScreenX() + offset[0]);
-				stage.setY(e.getScreenY() + offset[1]);
+		scene.setOnMouseDragged(e -> {
+			if (dragging[0]) {
+				stage.setX(e.getScreenX() + delta[0]);
+				stage.setY(e.getScreenY() + delta[1]);
 			}
 		});
-		bar.setOnMouseClicked(e -> {
-			if (e.getClickCount() == 2) {
-				toggleMaximized();
+	}
+
+	private static boolean isInput(Node n) {
+		for (; n != null; n = n.getParent()) {
+			if (n instanceof Control c && !(c instanceof Label)) {
+				return true;
 			}
-		});
-		return bar;
-	}
-
-	private static Button chromeButton(String icon, Runnable action) {
-		javafx.scene.image.ImageView view = new javafx.scene.image.ImageView(new Image(res(icon)));
-		view.setFitHeight(12);
-		view.setPreserveRatio(true);
-		Button b = new Button(null, view);
-		b.getStyleClass().add("chrome-button");
-		b.setOnAction(e -> action.run());
-		return b;
-	}
-
-	static String res(String name) {
-		return Objects.requireNonNull(LauncherWindow.class.getResource("/fr/krosmocraft/launcher/app/" + name),
-				"missing resource " + name).toExternalForm();
+		}
+		return false;
 	}
 }
