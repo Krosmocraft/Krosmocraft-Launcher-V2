@@ -33,6 +33,10 @@ public final class Http {
 		return send(request(url).GET().build(), HttpResponse.BodyHandlers.ofString()).body();
 	}
 
+	public static byte[] getBytes(String url) throws IOException {
+		return send(request(url).GET().build(), HttpResponse.BodyHandlers.ofByteArray()).body();
+	}
+
 	public static <T> T getJson(String url, Class<T> type) throws IOException {
 		return Json.GSON.fromJson(getString(url), type);
 	}

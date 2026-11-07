@@ -29,7 +29,7 @@ public final class PresetApplier {
 		mergeOptions(gameDir.resolve("options.txt"), preset.options());
 	}
 
-	static void mergeOptions(Path file, Map<String, String> overrides) throws IOException {
+	public static void mergeOptions(Path file, Map<String, String> overrides) throws IOException {
 		if (overrides.isEmpty()) {
 			return;
 		}

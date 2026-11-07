@@ -45,13 +45,14 @@ class LaunchCommandNetworkTest {
 				new Platform(Platform.Os.MACOS, Platform.Arch.ARM64),
 				new Platform(Platform.Os.LINUX, Platform.Arch.X64))) {
 			List<String> cmd = LaunchCommand.build(new LaunchCommand.Inputs(merged, layout, p, Path.of("java"),
-					"Pepsi", "00000000-0000-0000-0000-000000000000", 4096, List.of(),
+					"Pepsi", "00000000-0000-0000-0000-000000000000", 4096, List.of(), 1280, 720,
 					List.of("--token", "abc", "--server", "play.krosmocraft.fr", "--port", "56119")));
 
 			assertTrue(cmd.stream().noneMatch(a -> a.contains("${")), () -> p + " unresolved: " + cmd);
 			assertTrue(cmd.stream().noneMatch(a -> a.startsWith("\"")), "no hand quoting");
 			assertTrue(cmd.containsAll(List.of("--token", "abc", "--server", "--port")));
 			assertTrue(cmd.contains("--gameDir"));
+			assertTrue(cmd.containsAll(List.of("--width", "1280", "--height", "720")), "custom resolution");
 			assertFalse(cmd.contains("--demo"), "feature-gated args must be dropped");
 			assertEquals(p.os() == Platform.Os.MACOS, cmd.contains("-XstartOnFirstThread"), p + " startOnFirstThread");
 

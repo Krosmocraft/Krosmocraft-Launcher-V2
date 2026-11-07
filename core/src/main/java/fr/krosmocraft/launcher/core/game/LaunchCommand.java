@@ -28,6 +28,8 @@ public final class LaunchCommand {
 			String playerUuid,
 			int memoryMb,
 			List<String> userJvmArgs,
+			int windowWidth,
+			int windowHeight,
 			List<String> extraGameArgs) {
 	}
 
@@ -39,7 +41,7 @@ public final class LaunchCommand {
 		if (p.arguments() == null) {
 			throw new IllegalStateException("Profile " + p.id() + " has no 'arguments' (pre-1.13 versions are not supported)");
 		}
-		Set<String> features = Set.of();
+		Set<String> features = in.windowWidth() > 0 && in.windowHeight() > 0 ? Set.of("has_custom_resolution") : Set.of();
 		Map<String, String> vars = variables(in);
 
 		List<String> cmd = new ArrayList<>();
@@ -89,6 +91,8 @@ public final class LaunchCommand {
 		v.put("natives_directory", l.nativesDir(p.id()).toString());
 		v.put("classpath_separator", File.pathSeparator);
 		v.put("classpath", classpath(p, l, in.platform()));
+		v.put("resolution_width", String.valueOf(in.windowWidth()));
+		v.put("resolution_height", String.valueOf(in.windowHeight()));
 		v.put("launcher_name", "krosmocraft-launcher");
 		v.put("launcher_version", "2");
 		return v;

@@ -22,12 +22,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public final class LaunchPipeline {
 
 	public static final String CDN = "https://krosmocraft.fr/downloads/";
+
+	public record Prepared(ClientManifest manifest, VersionProfile profile, Path java) {
+	}
 
 	private final GameLayout layout;
 	private final Platform platform;
@@ -41,32 +46,44 @@ public final class LaunchPipeline {
 		return Http.getJson(CDN + server.channel() + "/manifest.json", ClientManifest.class);
 	}
 
-	public Process prepareAndLaunch(ClientManifest manifest, ServerEntry server, AuthResult.Success session,
-									LauncherSettings settings, boolean resetSettings, Downloader.Verify verify,
-									ProgressListener progress) throws IOException {
+	public Prepared prepare(ClientManifest manifest, String presetId, Downloader.Verify verify, ProgressListener progress)
+			throws IOException {
 		VersionProfile profile = new GameInstaller(layout, platform)
 				.install(manifest.minecraft(), manifest.fabricLoader(), verify, progress);
 		Path java = new JavaRuntimeInstaller(layout, platform).install(profile.javaVersion(), verify, progress);
+		FileSync.sync(manifest, manifest.preset(presetId), layout.gameDir(), verify, progress);
+		return new Prepared(manifest, profile, java);
+	}
 
-		Preset preset = manifest.preset(settings.presetId);
-		FileSync.sync(manifest, preset, layout.gameDir(), verify, progress);
-		if (resetSettings || !preset.stamp().equals(settings.appliedPreset)) {
-			progress.step("install.preset");
+	public void syncPresetFiles(ClientManifest manifest, String presetId, ProgressListener progress) throws IOException {
+		FileSync.sync(manifest, manifest.preset(presetId), layout.gameDir(), Downloader.Verify.FAST, progress);
+	}
+
+	public Process launch(Prepared prepared, ServerEntry server, AuthResult.Success session, LauncherSettings settings)
+			throws IOException {
+		Preset preset = prepared.manifest().preset(settings.presetId);
+		if (!preset.stamp().equals(settings.appliedPreset)) {
 			PresetApplier.apply(preset, layout.gameDir());
 			settings.appliedPreset = preset.stamp();
 			settings.save(layout.settingsFile());
 		}
+		PresetApplier.mergeOptions(layout.gameDir().resolve("options.txt"),
+				Map.of("fullscreen", String.valueOf(settings.fullscreen)));
 
-		progress.step("launch");
 		List<String> modArgs = new ArrayList<>(List.of(
 				"--token", session.token(),
 				"--server", server.address(),
 				"--port", String.valueOf(server.port())));
+		if (settings.borderless) {
+			modArgs.add("--borderless"); // handled by our mod, vanilla has no borderless mode
+		}
+		List<String> jvmArgs = Arrays.stream(settings.jvmArgs.trim().split("\\s+")).filter(s -> !s.isEmpty()).toList();
 		List<String> command = LaunchCommand.build(new LaunchCommand.Inputs(
-				profile, layout, platform, java, session.pseudo(), offlineUuid(session.pseudo()),
-				settings.memoryMb, settings.jvmArgs, modArgs));
+				prepared.profile(), layout, platform, prepared.java(), session.pseudo(), offlineUuid(session.pseudo()),
+				settings.memoryMb, jvmArgs, settings.windowWidth(), settings.windowHeight(), modArgs));
 
 		Files.createDirectories(layout.logsDir());
+		System.out.println("Launching: " + redact(command));
 		return new ProcessBuilder(command)
 				.directory(layout.gameDir().toFile())
 				.redirectErrorStream(true)
