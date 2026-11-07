@@ -30,7 +30,7 @@ import java.util.stream.Stream;
 final class LauncherUpdater {
 
 	// base64 X.509 Ed25519 key, when set manifest.txt.sig is required
-	private static final String PUBLIC_KEY = "";
+	private static final String PUBLIC_KEY = "MCowBQYDK2VwAyEAN0fgqvGjvv9j9gsPkrZNvl2YhvVOP00RjV9rQPsTMZE=";
 
 	record ManifestFile(String name, String url, String sha1, long size) {
 	}
