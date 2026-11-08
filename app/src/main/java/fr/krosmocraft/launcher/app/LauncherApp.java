@@ -306,6 +306,7 @@ public final class LauncherApp extends Application {
 			}
 			case AuthResult.NeedsPseudo n -> loggedIn();
 			case AuthResult.WrongCredentials w -> loginFailed("Veuillez vérifier le nom de compte et le mot de passe saisi");
+			case AuthResult.NotAllowed n -> loginFailed("Ce serveur est réservé à l'équipe de développement");
 			case AuthResult.Unreachable u -> loginFailed("Le serveur est hors ligne ou en maintenance, réessayer plus tard");
 			case AuthResult.PseudoRejected r -> loginFailed(null); // not sent by /login
 		}

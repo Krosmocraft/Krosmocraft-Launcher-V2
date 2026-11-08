@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public record ServerEntry(String name, String address, int port, String type, String authHost, int authPort) {
@@ -25,9 +26,9 @@ public record ServerEntry(String name, String address, int port, String type, St
 		return "Build".equalsIgnoreCase(type) ? "build" : "beta";
 	}
 
-	// CDN channel: build servers run the live client files
+	// CDN channel: build servers run the live client files, each test server its own (its deployed branch, else main)
 	public String channel() {
-		return category().equals("beta") ? "beta" : "live";
+		return category().equals("beta") ? "dev/" + name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "") : "live";
 	}
 
 	private int rank() {

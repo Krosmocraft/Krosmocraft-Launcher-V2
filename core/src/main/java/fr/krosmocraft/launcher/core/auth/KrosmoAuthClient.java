@@ -36,6 +36,7 @@ public final class KrosmoAuthClient {
 			return switch (r.statusCode()) {
 				case 200 -> parseSuccess(r.body());
 				case 201 -> new AuthResult.NeedsPseudo();
+				case 403 -> new AuthResult.NotAllowed();
 				default -> new AuthResult.WrongCredentials();
 			};
 		} catch (IllegalBlockSizeException e) {

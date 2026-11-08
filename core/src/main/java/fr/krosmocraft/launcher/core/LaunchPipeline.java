@@ -43,7 +43,15 @@ public final class LaunchPipeline {
 	}
 
 	public static ClientManifest fetchManifest(ServerEntry server) throws IOException {
-		return Http.getJson(CDN + server.channel() + "/manifest.json", ClientManifest.class);
+		try {
+			return Http.getJson(CDN + server.channel() + "/manifest.json", ClientManifest.class);
+		} catch (IOException e) {
+			// test server without its own channel yet
+			if (server.channel().startsWith("dev/")) {
+				return Http.getJson(CDN + "beta/manifest.json", ClientManifest.class);
+			}
+			throw e;
+		}
 	}
 
 	public Prepared prepare(ClientManifest manifest, String presetId, Downloader.Verify verify, ProgressListener progress)

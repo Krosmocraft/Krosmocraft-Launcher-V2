@@ -29,7 +29,7 @@ class ServerLoginTest {
 				""");
 		assertEquals(List.of(LIVE, ALICE, BOB), list);
 		assertEquals("http://play.krosmocraft.fr:24462", list.get(1).authUrl());
-		assertEquals("beta", list.get(1).channel());
+		assertEquals("dev/betaalice", list.get(1).channel());
 	}
 
 	@Test

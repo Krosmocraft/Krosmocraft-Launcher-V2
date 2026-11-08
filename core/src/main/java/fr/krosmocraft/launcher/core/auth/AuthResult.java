@@ -15,6 +15,10 @@ public sealed interface AuthResult {
 	record WrongCredentials() implements AuthResult {
 	}
 
+	// test server: account not on its whitelist
+	record NotAllowed() implements AuthResult {
+	}
+
 	record Unreachable(String detail) implements AuthResult {
 	}
 }
