@@ -107,6 +107,12 @@ public final class LauncherWindow {
 		});
 	}
 
+	// Locked while logged in: the session belongs to one server
+	public void setServerLocked(boolean locked) {
+		serverChoice.hide();
+		serverChoice.setDisable(locked);
+	}
+
 	public ServerEntry selectedServer() {
 		return serverChoice.getValue();
 	}
@@ -141,7 +147,7 @@ public final class LauncherWindow {
 		root.font(title, g -> Fx.bold(g.fs2()));
 		Fx.glowHover(title, 0.9);
 		title.setOnMouseClicked(e -> {
-			if (!serverChoice.getItems().isEmpty()) {
+			if (!serverChoice.getItems().isEmpty() && !serverChoice.isDisabled()) {
 				serverChoice.show();
 			}
 		});

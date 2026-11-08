@@ -1,5 +1,6 @@
 package fr.krosmocraft.launcher.app.ui;
 
+import javafx.animation.AnimationTimer;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
@@ -14,8 +15,6 @@ import javafx.scene.text.TextAlignment;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-import static fr.krosmocraft.launcher.app.ui.AbsolutePane.box;
 
 public final class MainScreen extends AbsolutePane {
 
@@ -39,6 +38,34 @@ public final class MainScreen extends AbsolutePane {
 	private final ImageView skin = new ImageView();
 	private final Map<Node, Double> targets = new LinkedHashMap<>();
 	private boolean ready;
+	private boolean finishing;
+	private double shown;
+	private double target;
+	private final AnimationTimer smoother = new AnimationTimer() {
+		private long last;
+
+		@Override
+		public void start() {
+			last = 0;
+			super.start();
+		}
+
+		@Override
+		public void handle(long now) {
+			double dt = last == 0 ? 0 : (now - last) / 1e9;
+			last = now;
+			double gap = target - shown;
+			shown = Math.min(target, shown + Math.max(gap * (1 - Math.exp(-6 * dt)), 0.4 * dt));
+			bar.setProgress(shown);
+			percent.setText(Math.round(shown * 100) + "%");
+			if (shown >= target) {
+				stop();
+				if (finishing) {
+					finishReady();
+				}
+			}
+		}
+	};
 	private boolean muted;
 
 	public MainScreen(String pseudo, String playerCount, String version, boolean muted, Actions actions) {
@@ -209,6 +236,7 @@ public final class MainScreen extends AbsolutePane {
 	}
 
 	private void showProgress(boolean animate) {
+		setProgressVisible(true);
 		Fx.fade(step, 0.4, animate ? 700 : 1);
 		Fx.fade(percent, 0.4, animate ? 700 : 1);
 		Fx.fade(bar, 0.8, animate ? 700 : 1);
@@ -216,6 +244,10 @@ public final class MainScreen extends AbsolutePane {
 
 	public void preparing() {
 		ready = false;
+		finishing = false;
+		smoother.stop();
+		shown = 0;
+		target = 0;
 		play.setVisible(false);
 		loading.setVisible(true);
 		loading.setOpacity(1);
@@ -227,21 +259,32 @@ public final class MainScreen extends AbsolutePane {
 
 	public void progress(String text, double fraction) {
 		step.setText(text);
-		if (fraction >= 0) {
-			bar.setProgress(fraction);
-			percent.setText(new java.text.DecimalFormat("#.#").format(fraction * 100) + "%");
+		if (fraction > target) {
+			target = Math.min(fraction, 1);
+			smoother.start();
 		}
 	}
 
 	public void ready() {
+		finishing = true;
+		target = 1;
+		smoother.start();
+	}
+
+	private void finishReady() {
+		finishing = false;
 		ready = true;
-		step.setOpacity(0);
-		percent.setOpacity(0);
-		bar.setOpacity(0);
+		setProgressVisible(false);
 		loading.setVisible(false);
 		play.setText("JOUER >");
 		play.setVisible(true);
 		play.setOpacity(1);
+	}
+
+	private void setProgressVisible(boolean visible) {
+		step.setVisible(visible);
+		percent.setVisible(visible);
+		bar.setVisible(visible);
 	}
 
 	public void launching() {

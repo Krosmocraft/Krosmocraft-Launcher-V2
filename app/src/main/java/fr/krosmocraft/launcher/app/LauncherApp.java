@@ -12,7 +12,6 @@ import fr.krosmocraft.launcher.core.LaunchPipeline;
 import fr.krosmocraft.launcher.core.auth.AuthResult;
 import fr.krosmocraft.launcher.core.auth.KrosmoAuthClient;
 import fr.krosmocraft.launcher.core.auth.ProfileInfo;
-import fr.krosmocraft.launcher.core.auth.ServerSessions;
 import fr.krosmocraft.launcher.core.config.LauncherSettings;
 import fr.krosmocraft.launcher.core.config.PasswordVault;
 import fr.krosmocraft.launcher.core.game.GameLayout;
@@ -56,9 +55,13 @@ public final class LauncherApp extends Application {
 		t.setDaemon(true);
 		return t;
 	});
+	// One at a time: a cancelled sync fully stops before the next one starts
+	private final ExecutorService downloads = Executors.newSingleThreadExecutor(r -> {
+		Thread t = new Thread(r, "launcher-downloads");
+		t.setDaemon(true);
+		return t;
+	});
 	private final Platform platform = Platform.current();
-	private final ServerSessions sessions = new ServerSessions();
-	private final Map<String, Image> skins = new HashMap<>();
 
 	private GameLayout layout;
 	private LauncherSettings settings;
@@ -68,6 +71,7 @@ public final class LauncherApp extends Application {
 
 	private List<ServerEntry> servers = List.of(ServerEntry.LIVE_FALLBACK);
 	private Task<LaunchPipeline.Prepared> prepareTask;
+	private Task<Void> syncTask;
 	private LaunchPipeline.Prepared prepared;
 	private String preparedPresetId;
 	private String progressText = "Préparation de la mise a jour...";
@@ -104,30 +108,27 @@ public final class LauncherApp extends Application {
 
 		run(ServerEntry::fetch, list -> {
 			servers = list;
-			ServerEntry selected = server(settings.server);
-			window.setServers(servers, selected, this::serverChanged);
-			prepare();
-			followServer();
-		}, e -> prepare());
+			if (loginServer == null && session == null) {
+				window.setServers(servers, server(settings.server), this::serverChanged);
+			}
+		}, e -> { });
 	}
 
 	@Override
 	public void stop() {
 		worker.shutdownNow();
+		downloads.shutdownNow();
 	}
 
+	// Downloads start only once logged in, for the committed server
 	private void prepare() {
-		if (prepareTask != null) {
-			prepareTask.cancel(true);
-		}
-		prepared = null;
-		progressText = "Préparation de la mise a jour...";
-		progressValue = 0;
+		cancelDownloads();
 		if (mainScreen != null) {
 			mainScreen.preparing();
+			mainScreen.progress(progressText, progressValue);
 		}
-		ServerEntry server = currentServer();
-		Task<LaunchPipeline.Prepared> task = new ProgressTask<>() {
+		ServerEntry server = sessionServer;
+		Task<LaunchPipeline.Prepared> task = new ProgressTask<>(ProgressTask.FULL_UPDATE) {
 			@Override
 			protected LaunchPipeline.Prepared call() throws Exception {
 				ClientManifest manifest = LaunchPipeline.fetchManifest(server);
@@ -136,8 +137,16 @@ public final class LauncherApp extends Application {
 				return pipeline.prepare(manifest, presetId, Downloader.Verify.FAST, this);
 			}
 		};
-		task.messageProperty().addListener((o, a, b) -> progress(b, progressValue));
-		task.progressProperty().addListener((o, a, b) -> progress(progressText, b.doubleValue()));
+		task.messageProperty().addListener((o, a, b) -> {
+			if (task == prepareTask) {
+				progress(b, progressValue);
+			}
+		});
+		task.progressProperty().addListener((o, a, b) -> {
+			if (task == prepareTask) {
+				progress(progressText, b.doubleValue());
+			}
+		});
 		task.setOnSucceeded(e -> {
 			if (task != prepareTask) {
 				return;
@@ -160,7 +169,23 @@ public final class LauncherApp extends Application {
 			}
 		});
 		prepareTask = task;
-		worker.submit(task);
+		downloads.submit(task);
+	}
+
+	// Interrupts running syncs and resets the download state
+	private void cancelDownloads() {
+		if (prepareTask != null) {
+			prepareTask.cancel(true);
+			prepareTask = null;
+		}
+		if (syncTask != null) {
+			syncTask.cancel(true);
+			syncTask = null;
+		}
+		prepared = null;
+		preparedPresetId = null;
+		progressText = "Préparation de la mise a jour...";
+		progressValue = 0;
 	}
 
 	private void progress(String text, double value) {
@@ -172,52 +197,58 @@ public final class LauncherApp extends Application {
 	}
 
 	private abstract static class ProgressTask<T> extends Task<T> implements ProgressListener {
-		@Override
-		public void step(String key) {
-			updateMessage(Texts.step(key));
+		static final List<String> FULL_UPDATE =
+				List.of("install.versions", "install.libraries", "install.assets", "install.java", "install.mods");
+		private static final Map<String, Double> WEIGHTS = Map.of("install.versions", 5.0, "install.libraries", 20.0,
+				"install.assets", 35.0, "install.java", 25.0, "install.mods", 15.0);
+
+		private final Map<String, double[]> slices = new HashMap<>();
+		private double from;
+		private double to;
+		private double shown;
+
+		ProgressTask(List<String> steps) {
+			double total = steps.stream().mapToDouble(WEIGHTS::get).sum();
+			double at = 0;
+			for (String s : steps) {
+				double end = at + WEIGHTS.get(s) / total;
+				slices.put(s, new double[]{at, end});
+				at = end;
+			}
 		}
 
 		@Override
-		public void progress(long done, long total) {
-			updateProgress(done, Math.max(total, 1));
+		public synchronized void step(String key) {
+			updateMessage(Texts.step(key));
+			double[] slice = slices.get(key);
+			if (slice != null) {
+				from = slice[0];
+				to = slice[1];
+				report(from);
+			}
+		}
+
+		@Override
+		public synchronized void progress(long done, long total) {
+			double fraction = total <= 0 ? 1 : (double) done / total;
+			report(from + (to - from) * Math.min(fraction, 1));
+		}
+
+		private void report(double value) {
+			shown = Math.max(shown, value);
+			updateProgress(shown, 1);
 		}
 	}
 
+	// only reachable while logged out (selector locked otherwise)
 	private void serverChanged(ServerEntry s) {
 		settings.server = s.name();
 		saveSettings();
-		prepare();
-		followServer();
-	}
-
-	private void followServer() {
-		if (loginServer != null) {
-			return; // showMain checks again
-		}
-		ServerEntry server = currentServer();
-		if (session != null && sessionServer.key().equals(server.key())) {
-			return;
-		}
-		AuthResult.Success known = sessions.get(server).orElse(null);
-		if (known == null) {
-			if (mainScreen != null) {
-				backToLogin();
-			}
-			return;
-		}
-		useSession(server, known);
-		if (mainScreen != null) {
-			window.overlayLayer().getChildren().clear();
-			window.screenLayer().remove(mainScreen);
-			mainScreen = null;
-		}
-		showMain(false);
 	}
 
 	private void useSession(ServerEntry server, AuthResult.Success s) {
 		session = s;
 		sessionServer = server;
-		skin = skins.get(server.key());
 		profile = ProfileInfo.EMPTY;
 	}
 
@@ -237,36 +268,46 @@ public final class LauncherApp extends Application {
 		saveSettings();
 		ServerEntry server = currentServer();
 		loginServer = server;
+		window.setServerLocked(true);
 		KrosmoAuthClient auth = new KrosmoAuthClient(server.authUrl());
-		run(() -> auth.login(c.username(), c.password()), this::onAuth, e -> {
-			loginServer = null;
-			loginScreen.failed();
-			error("Authentification échouée !", "Le serveur est hors ligne ou en maintenance, réessayer plus tard", null);
-		});
+		long start = System.nanoTime();
+		run(() -> auth.login(c.username(), c.password()), result -> afterMinDelay(start, () -> onAuth(result)),
+				e -> afterMinDelay(start, () -> loginFailed("Le serveur est hors ligne ou en maintenance, réessayer plus tard")));
+	}
+
+	// a login answered instantly feels fake: show the spinner at least this long
+	private static final long LOGIN_MIN_MS = 800;
+
+	private void afterMinDelay(long start, Runnable then) {
+		long left = LOGIN_MIN_MS - (System.nanoTime() - start) / 1_000_000;
+		if (left <= 0) {
+			then.run();
+			return;
+		}
+		PauseTransition p = new PauseTransition(Duration.millis(left));
+		p.setOnFinished(e -> then.run());
+		p.play();
+	}
+
+	private void loginFailed(String message) {
+		loginServer = null;
+		window.setServerLocked(false);
+		loginScreen.failed();
+		if (message != null) {
+			error("Authentification échouée !", message, null);
+		}
 	}
 
 	private void onAuth(AuthResult result) {
 		switch (result) {
 			case AuthResult.Success s -> {
-				sessions.put(loginServer, s);
 				useSession(loginServer, s);
 				loggedIn();
 			}
 			case AuthResult.NeedsPseudo n -> loggedIn();
-			case AuthResult.WrongCredentials w -> {
-				loginServer = null;
-				loginScreen.failed();
-				error("Authentification échouée !", "Veuillez vérifier le nom de compte et le mot de passe saisi", null);
-			}
-			case AuthResult.Unreachable u -> {
-				loginServer = null;
-				loginScreen.failed();
-				error("Authentification échouée !", "Le serveur est hors ligne ou en maintenance, réessayer plus tard", null);
-			}
-			case AuthResult.PseudoRejected r -> {
-				loginServer = null;
-				loginScreen.failed(); // not sent by /login
-			}
+			case AuthResult.WrongCredentials w -> loginFailed("Veuillez vérifier le nom de compte et le mot de passe saisi");
+			case AuthResult.Unreachable u -> loginFailed("Le serveur est hors ligne ou en maintenance, réessayer plus tard");
+			case AuthResult.PseudoRejected r -> loginFailed(null); // not sent by /login
 		}
 	}
 
@@ -275,13 +316,11 @@ public final class LauncherApp extends Application {
 		settings.savedPassword = credentials.remember() ? vault.encrypt(credentials.password()) : "";
 		saveSettings();
 		String user = credentials.username();
-		ServerEntry server = loginServer;
 		run(() -> {
 			byte[] png = Http.getBytes("https://krosmocraft.fr/skin/3d?user=" + URLEncoder.encode(user, StandardCharsets.UTF_8));
 			return new Image(new ByteArrayInputStream(png));
 		}, img -> {
 			skin = img;
-			skins.put(server.key(), img);
 			if (session == null) {
 				phase2();
 				return;
@@ -331,7 +370,6 @@ public final class LauncherApp extends Application {
 				result -> {
 					switch (result) {
 						case AuthResult.Success s -> {
-							sessions.put(server, s);
 							useSession(server, s);
 							overlay[0].close(400, this::afterLogin);
 						}
@@ -387,18 +425,10 @@ public final class LauncherApp extends Application {
 				});
 		mainScreen.setSkin(skin);
 		window.screenLayer().place(mainScreen, g -> box(0, 0, g.w(), g.h()));
-		if (prepared != null) {
-			mainScreen.ready();
-		} else {
-			mainScreen.preparing();
-			mainScreen.progress(progressText, progressValue);
-		}
+		loginServer = null;
+		prepare();
 		mainScreen.show(animate);
 		startMusic();
-		if (loginServer != null) {
-			loginServer = null;
-			followServer(); // server may have changed meanwhile
-		}
 	}
 
 	private void startMusic() {
@@ -457,30 +487,47 @@ public final class LauncherApp extends Application {
 			if (mainScreen != null) {
 				mainScreen.preparing();
 			}
-			Task<Void> sync = new ProgressTask<>() {
+			Task<Void> sync = new ProgressTask<>(List.of("install.mods")) {
 				@Override
 				protected Void call() throws Exception {
 					pipeline.syncPresetFiles(current.manifest(), preset.id(), this);
 					return null;
 				}
 			};
-			sync.messageProperty().addListener((o, a, b) -> progress(b, progressValue));
-			sync.progressProperty().addListener((o, a, b) -> progress(progressText, b.doubleValue()));
+			sync.messageProperty().addListener((o, a, b) -> {
+				if (sync == syncTask) {
+					progress(b, progressValue);
+				}
+			});
+			sync.progressProperty().addListener((o, a, b) -> {
+				if (sync == syncTask) {
+					progress(progressText, b.doubleValue());
+				}
+			});
 			sync.setOnSucceeded(e -> {
+				if (sync != syncTask) {
+					return;
+				}
+				syncTask = null;
 				preparedPresetId = preset.id();
 				prepared = current;
 				if (mainScreen != null) {
 					mainScreen.ready();
 				}
 			});
-			sync.setOnFailed(e -> error("Échec de la mise à jour !", "Vérifiez votre connexion Internet puis réessayez", this::prepare));
-			worker.submit(sync);
+			sync.setOnFailed(e -> {
+				if (sync == syncTask) {
+					error("Échec de la mise à jour !", "Vérifiez votre connexion Internet puis réessayez", this::prepare);
+				}
+			});
+			syncTask = sync;
+			downloads.submit(sync);
 		}
 	}
 
 	private void play() {
-		ServerEntry server = currentServer();
-		AuthResult.Success s = sessions.get(server).orElse(null);
+		ServerEntry server = sessionServer;
+		AuthResult.Success s = session;
 		if (prepared == null || s == null) {
 			return;
 		}
@@ -493,11 +540,20 @@ public final class LauncherApp extends Application {
 	}
 
 	private void watchGame(Process game) {
-		window.stage().hide();
-		if (music != null) {
-			music.pause();
-		}
+		// keep "Lancement du jeu..." on screen a moment, so closing doesn't look like a crash
+		PauseTransition delay = new PauseTransition(Duration.millis(1500));
+		delay.setOnFinished(e -> {
+			if (!game.isAlive()) {
+				return; // exit handler below takes over
+			}
+			window.stage().hide();
+			if (music != null) {
+				music.pause();
+			}
+		});
+		delay.play();
 		run(game::waitFor, code -> {
+			delay.stop();
 			if (code == 0) {
 				javafx.application.Platform.exit();
 				return;
@@ -510,15 +566,14 @@ public final class LauncherApp extends Application {
 		}, e -> javafx.application.Platform.exit());
 	}
 
+	// disconnect: stop downloads cleanly, forget the session, free the server choice
 	private void logout() {
-		sessions.clear();
-		skins.clear();
-		backToLogin();
-	}
-
-	private void backToLogin() {
+		cancelDownloads();
 		session = null;
 		sessionServer = null;
+		loginServer = null;
+		window.setServers(servers, server(settings.server), this::serverChanged);
+		window.setServerLocked(false);
 		credentials = null;
 		skin = null;
 		profile = ProfileInfo.EMPTY;
@@ -541,6 +596,12 @@ public final class LauncherApp extends Application {
 	}
 
 	private ServerEntry currentServer() {
+		if (sessionServer != null) {
+			return sessionServer;
+		}
+		if (loginServer != null) {
+			return loginServer;
+		}
 		return window.selectedServer() != null ? window.selectedServer() : server(settings.server);
 	}
 

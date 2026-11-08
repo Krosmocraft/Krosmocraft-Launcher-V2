@@ -27,7 +27,6 @@ public final class LaunchCommand {
 			String playerName,
 			String playerUuid,
 			int memoryMb,
-			List<String> userJvmArgs,
 			int windowWidth,
 			int windowHeight,
 			List<String> extraGameArgs) {
@@ -47,7 +46,7 @@ public final class LaunchCommand {
 		List<String> cmd = new ArrayList<>();
 		cmd.add(in.javaExecutable().toString());
 		cmd.add("-Xmx" + in.memoryMb() + "M");
-		cmd.addAll(in.userJvmArgs());
+		cmd.add("-XX:+DisableAttachMechanism");
 		appendArgs(cmd, p.arguments().jvm(), in.platform(), features, vars);
 		if (p.logging() != null && p.logging().client() != null) {
 			Path config = in.layout().assetsDir().resolve("log_configs").resolve(p.logging().client().file().id());

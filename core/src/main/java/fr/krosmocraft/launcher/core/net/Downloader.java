@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class Downloader {
@@ -43,7 +44,8 @@ public final class Downloader {
 		progress.progress(0, total);
 
 		Semaphore permits = new Semaphore(PARALLEL);
-		try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
+		ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
+		try {
 			List<Future<?>> futures = new ArrayList<>();
 			for (FileDownload f : todo) {
 				futures.add(pool.submit(() -> {
@@ -65,6 +67,28 @@ public final class Downloader {
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			throw new IOException("Download cancelled", e);
+		} finally {
+			stop(pool);
+		}
+	}
+
+	private static void stop(ExecutorService pool) {
+		pool.shutdownNow();
+		boolean interrupted = Thread.interrupted();
+		try {
+			for (int i = 0; i < 3; i++) {
+				try {
+					if (pool.awaitTermination(10, TimeUnit.SECONDS)) {
+						return;
+					}
+				} catch (InterruptedException e) {
+					interrupted = true;
+				}
+			}
+		} finally {
+			if (interrupted) {
+				Thread.currentThread().interrupt();
+			}
 		}
 	}
 

@@ -44,7 +44,12 @@ public final class Http {
 	public static void download(String url, Path target) throws IOException {
 		Files.createDirectories(target.getParent());
 		Path tmp = target.resolveSibling(target.getFileName() + ".part");
-		send(request(url).timeout(Duration.ofMinutes(5)).GET().build(), HttpResponse.BodyHandlers.ofFile(tmp));
+		try {
+			send(request(url).timeout(Duration.ofMinutes(5)).GET().build(), HttpResponse.BodyHandlers.ofFile(tmp));
+		} catch (IOException e) {
+			Files.deleteIfExists(tmp);
+			throw e;
+		}
 		Files.move(tmp, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
 	}
 

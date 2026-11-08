@@ -11,7 +11,6 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.Slider;
-import javafx.scene.control.TextField;
 import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -383,16 +382,6 @@ public final class SettingsOverlay extends Overlay {
 		tab.font(rec1, g -> Fx.bold(g.fs() - 1));
 		Label rec2 = boldLabel("4 Go de RAM et à l'idéal 8 Go", g -> box(g.r(10) * 32 + g.r(5), g.r(10) * 26 + g.r(5), g.r(10) * 35, g.r(10) * 4), 1);
 		tab.font(rec2, g -> Fx.bold(g.fs() - 1));
-		grayLine(g -> box(g.r(10) * 30 + g.r(5), g.r(10) * 31 + g.r(8), g.r(10) * 50, 1));
-		Label jvm = boldLabel("Arguments JVM", g -> box(g.r(10) * 32 + g.r(5), g.r(10) * 33, g.r(10) * 35, g.r(10) * 4), 1);
-		tab.font(jvm, g -> Fx.bold(g.fs() + 2));
-
-		TextField args = new TextField(settings.jvmArgs);
-		args.setStyle("-fx-background-color: rgba(0, 0, 0, 0.4); -fx-text-fill: white;");
-		args.setBorder(new Border(new BorderStroke(Color.GRAY, BorderStrokeStyle.SOLID, new CornerRadii(3), BorderWidths.DEFAULT)));
-		args.textProperty().addListener((o, a, b) -> settings.jvmArgs = b);
-		tab.place(args, g -> box(g.r(10) * 32 + g.r(4), g.r(10) * 38, g.r(10) * 25, g.r(10) * 3));
-		tab.font(args, g -> Fx.regular(g.fs()));
 	}
 
 	private void heading(String title, String subtitle, java.util.function.ToIntFunction<Geo> titleY,

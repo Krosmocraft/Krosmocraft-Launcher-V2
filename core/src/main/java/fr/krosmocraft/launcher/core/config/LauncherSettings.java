@@ -14,7 +14,6 @@ public final class LauncherSettings {
 	public String savedPassword = "";
 
 	public int memoryMb = 4096;
-	public String jvmArgs = "";
 	public String gameSize = "854x480";
 	public boolean fullscreen = false;
 	public boolean borderless = false;

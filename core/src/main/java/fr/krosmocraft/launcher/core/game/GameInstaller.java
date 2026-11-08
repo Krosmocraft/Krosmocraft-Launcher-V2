@@ -38,9 +38,20 @@ public final class GameInstaller {
 		VersionProfile merged = ProfileMerger.merge(fabric, vanilla);
 
 		progress.step("install.libraries");
+		Downloader.run(codeFiles(merged), verify, progress);
+
+		progress.step("install.assets");
+		Downloader.run(assetFiles(merged.assetIndex()), verify, progress);
+
+		Files.createDirectories(layout.nativesDir(merged.id()));
+		Files.createDirectories(layout.gameDir());
+		return merged;
+	}
+
+	public List<FileDownload> codeFiles(VersionProfile merged) {
 		List<FileDownload> files = new ArrayList<>();
-		var client = vanilla.downloads().client();
-		files.add(new FileDownload(client.url(), layout.clientJar(vanilla.id()), client.sha1(), client.size()));
+		var client = merged.downloads().client();
+		files.add(new FileDownload(client.url(), layout.clientJar(merged.inheritsFromOrId()), client.sha1(), client.size()));
 		for (VersionProfile.Library lib : merged.libraries()) {
 			if (Rules.allowed(lib.rules(), platform, Set.of())) {
 				LibraryArtifact a = LibraryArtifact.of(lib);
@@ -51,15 +62,7 @@ public final class GameInstaller {
 			var log = merged.logging().client().file();
 			files.add(new FileDownload(log.url(), layout.assetsDir().resolve("log_configs").resolve(log.id()), log.sha1(), log.size()));
 		}
-		Downloader.run(files, verify, progress);
-
-		progress.step("install.assets");
-		Downloader.run(assetFiles(merged.assetIndex()), verify, progress);
-
-		// lwjgl extracts its natives itself, the folder just has to exist
-		Files.createDirectories(layout.nativesDir(merged.id()));
-		Files.createDirectories(layout.gameDir());
-		return merged;
+		return files;
 	}
 
 	private VersionProfile vanillaProfile(String mc) throws IOException {

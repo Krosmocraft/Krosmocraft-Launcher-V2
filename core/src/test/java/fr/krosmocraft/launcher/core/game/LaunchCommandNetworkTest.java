@@ -45,7 +45,7 @@ class LaunchCommandNetworkTest {
 				new Platform(Platform.Os.MACOS, Platform.Arch.ARM64),
 				new Platform(Platform.Os.LINUX, Platform.Arch.X64))) {
 			List<String> cmd = LaunchCommand.build(new LaunchCommand.Inputs(merged, layout, p, Path.of("java"),
-					"Pepsi", "00000000-0000-0000-0000-000000000000", 4096, List.of(), 1280, 720,
+					"Pepsi", "00000000-0000-0000-0000-000000000000", 4096, 1280, 720,
 					List.of("--token", "abc", "--server", "play.krosmocraft.fr", "--port", "56119")));
 
 			assertTrue(cmd.stream().noneMatch(a -> a.contains("${")), () -> p + " unresolved: " + cmd);
