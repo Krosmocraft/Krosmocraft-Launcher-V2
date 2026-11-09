@@ -4,8 +4,6 @@ name: Installers
 
 on:
   workflow_dispatch:
-  push:
-    tags: ['bootstrap-v*']
 
 jobs:
   windows:
@@ -32,7 +30,8 @@ jobs:
       - name: Build .deb
         run: |
           ./gradlew :bootstrap:jpackage -PinstallerType=deb --no-daemon
-          mkdir -p out && mv bootstrap/build/jpackage/*.deb out/
+          v=$(grep '^bootstrap_version=' gradle.properties | cut -d= -f2)
+          mkdir -p out && mv bootstrap/build/jpackage/*.deb "out/Krosmocraft-$v-linux-x64.deb"
       - name: Build .tar.gz (non-Debian distros)
         run: |
           ./gradlew :bootstrap:jpackage --no-daemon
@@ -98,3 +97,32 @@ jobs:
         with:
           name: krosmocraft-macos-${{ matrix.arch }}
           path: out/*.dmg
+
+  release:
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(grep '^bootstrap_version=' gradle.properties | cut -d= -f2)
+          tag="krosmocraft-v$v"
+          sed "s/{v}/$v/g" .github/release-notes.md > "$RUNNER_TEMP/notes.md"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/* --clobber
+          else
+            gh release create "$tag" dist/* --draft --target "$GITHUB_SHA" --title "Krosmocraft $v" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
