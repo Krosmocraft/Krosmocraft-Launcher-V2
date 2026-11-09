@@ -1,0 +1,100 @@
+# Bootstrap installers (rebuilt only when bootstrap_version changes; launcher updates go through the CDN).
+# jpackage can't cross-build: one runner per OS/arch. Artifacts are uploaded to the run.
+name: Installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['bootstrap-v*']
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25' }
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Build
+        run: ./gradlew :bootstrap:innoInstaller --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: krosmocraft-windows
+          path: bootstrap/build/inno/*.exe
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25' }
+      - name: Build .deb
+        run: |
+          ./gradlew :bootstrap:jpackage -PinstallerType=deb --no-daemon
+          mkdir -p out && mv bootstrap/build/jpackage/*.deb out/
+      - name: Build .tar.gz (non-Debian distros)
+        run: |
+          ./gradlew :bootstrap:jpackage --no-daemon
+          v=$(grep '^bootstrap_version=' gradle.properties | cut -d= -f2)
+          tar -C bootstrap/build/jpackage -czf "out/Krosmocraft-$v-linux-x64.tar.gz" Krosmocraft
+      - uses: actions/upload-artifact@v4
+        with:
+          name: krosmocraft-linux
+          path: out/*
+
+  macos:
+    strategy:
+      matrix:
+        include:
+          - { runner: macos-15, arch: arm64 }
+          - { runner: macos-15-intel, arch: x64 }
+    runs-on: ${{ matrix.runner }}
+    env:
+      SIGN: ${{ secrets.MAC_CERT_P12 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25' }
+      - name: Import signing certificate
+        if: env.SIGN == 'true'
+        env:
+          MAC_CERT_P12: ${{ secrets.MAC_CERT_P12 }}
+          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+        run: |
+          kc="$RUNNER_TEMP/build.keychain-db"; pw=$(uuidgen)
+          echo "$MAC_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$MAC_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$pw" "$kc"
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+          echo "KEYCHAIN=$kc" >> "$GITHUB_ENV"
+      - name: Build .dmg
+        env:
+          MAC_SIGN_IDENTITY: ${{ secrets.MAC_SIGN_IDENTITY }}
+        run: |
+          if [ "$SIGN" = true ]; then
+            ./gradlew :bootstrap:jpackage -PinstallerType=dmg "-PmacSignIdentity=$MAC_SIGN_IDENTITY" "-PmacKeychain=$KEYCHAIN" --no-daemon
+          else
+            ./gradlew :bootstrap:jpackage -PinstallerType=dmg --no-daemon
+          fi
+          mkdir -p out
+          for f in bootstrap/build/jpackage/*.dmg; do mv "$f" "out/$(basename "$f" .dmg)-macos-${{ matrix.arch }}.dmg"; done
+      - name: Notarize
+        if: env.SIGN == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for f in out/*.dmg; do
+            xcrun notarytool submit "$f" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+            xcrun stapler staple "$f"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: krosmocraft-macos-${{ matrix.arch }}
+          path: out/*.dmg

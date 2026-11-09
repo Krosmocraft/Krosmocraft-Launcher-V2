@@ -83,8 +83,21 @@ tasks.register('jpackage', Exec) {
 					 // never change, lets a new installer upgrade the old one
 					 '--win-upgrade-uuid', '6b1f4f0e-7c2a-4f55-9a43-0d9c2b6f1a11']
 		}
+		if (os.contains('mac')) {
+			// never change the identifier: macOS ties permissions and updates to it
+			args += ['--mac-package-identifier', 'fr.krosmocraft.launcher', '--mac-package-name', 'Krosmocraft',
+					 '--mac-entitlements', file('packaging/macos/entitlements.plist').absolutePath]
+			// -PmacSignIdentity="Developer ID Application: Name (TEAMID)" [-PmacKeychain=<path>], unsigned without it
+			def identity = project.findProperty('macSignIdentity')
+			if (identity) {
+				args += ['--mac-sign', '--mac-app-image-sign-identity', identity]
+				def keychain = project.findProperty('macKeychain')
+				if (keychain) args += ['--mac-signing-keychain', keychain]
+			}
+		}
 		if (os.contains('linux') && type != 'app-image') {
-			args += ['--linux-shortcut', '--linux-app-category', 'Game']
+			args += ['--linux-shortcut', '--linux-app-category', 'Game', '--linux-package-name', 'krosmocraft',
+					 '--linux-deb-maintainer', 'krosmocraft@gmail.com', '--linux-menu-group', 'Game']
 		}
 		commandLine args
 	}
