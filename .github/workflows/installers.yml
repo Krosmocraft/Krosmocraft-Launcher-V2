@@ -1,11 +1,10 @@
 # Bootstrap installers (rebuilt only when bootstrap_version changes; launcher updates go through the CDN).
 # jpackage can't cross-build: one runner per OS/arch. Artifacts are uploaded to the run.
+# Asset names carry no version: krosmocraft.fr links to releases/latest/download/<name>.
 name: Installers
 
 on:
   workflow_dispatch:
-  push:
-    tags: ['bootstrap-v*']
 
 jobs:
   windows:
@@ -32,12 +31,11 @@ jobs:
       - name: Build .deb
         run: |
           ./gradlew :bootstrap:jpackage -PinstallerType=deb --no-daemon
-          mkdir -p out && mv bootstrap/build/jpackage/*.deb out/
+          mkdir -p out && mv bootstrap/build/jpackage/*.deb out/Krosmocraft-linux-x64.deb
       - name: Build .tar.gz (non-Debian distros)
         run: |
           ./gradlew :bootstrap:jpackage --no-daemon
-          v=$(grep '^bootstrap_version=' gradle.properties | cut -d= -f2)
-          tar -C bootstrap/build/jpackage -czf "out/Krosmocraft-$v-linux-x64.tar.gz" Krosmocraft
+          tar -C bootstrap/build/jpackage -czf out/Krosmocraft-linux-x64.tar.gz Krosmocraft
       - uses: actions/upload-artifact@v4
         with:
           name: krosmocraft-linux
@@ -82,7 +80,7 @@ jobs:
             ./gradlew :bootstrap:jpackage -PinstallerType=dmg --no-daemon
           fi
           mkdir -p out
-          for f in bootstrap/build/jpackage/*.dmg; do mv "$f" "out/$(basename "$f" .dmg)-macos-${{ matrix.arch }}.dmg"; done
+          mv bootstrap/build/jpackage/*.dmg out/Krosmocraft-macos-${{ matrix.arch }}.dmg
       - name: Notarize
         if: env.SIGN == 'true'
         env:
@@ -98,3 +96,32 @@ jobs:
         with:
           name: krosmocraft-macos-${{ matrix.arch }}
           path: out/*.dmg
+
+  release:
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(grep '^bootstrap_version=' gradle.properties | cut -d= -f2)
+          tag="krosmocraft-v$v"
+          sed "s/{v}/$v/g" .github/release-notes.md > "$RUNNER_TEMP/notes.md"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/* --clobber
+          else
+            gh release create "$tag" dist/* --draft --target "$GITHUB_SHA" --title "Krosmocraft $v" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
