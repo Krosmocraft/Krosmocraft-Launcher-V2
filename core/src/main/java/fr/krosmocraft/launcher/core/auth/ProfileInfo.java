@@ -13,7 +13,8 @@ public record ProfileInfo(String grade, String voteTokens, String ogrines) {
 	public static ProfileInfo fetch(String pseudo) {
 		try {
 			String page = Http.getString("https://krosmocraft.fr/profile/" + URLEncoder.encode(pseudo, StandardCharsets.UTF_8));
-			String text = page.replaceAll("<[^>]*>", "").replaceAll("\\s+", "");
+			String text = page.replaceAll("<[^>]*>", "").replaceAll("\\s+", "")
+					.replaceAll("&#0*39;|&apos;", "'");
 			return new ProfileInfo(
 					between(text, "Grade", "NombredeJetonde"),
 					between(text, "NombredeJetondevotes", "JetondevotesNomb"),
