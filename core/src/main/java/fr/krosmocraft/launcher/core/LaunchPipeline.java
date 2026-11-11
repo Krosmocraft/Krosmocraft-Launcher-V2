@@ -88,7 +88,8 @@ public final class LaunchPipeline {
 		List<String> modArgs = new ArrayList<>(List.of(
 				"--token", session.token(),
 				"--server", server.address(),
-				"--port", String.valueOf(server.port())));
+				"--port", String.valueOf(server.port()),
+				"--krosmoLang", settings.krosmoLanguageArg()));
 		if (settings.borderless) {
 			modArgs.add("--borderless"); // handled by our mod, vanilla has no borderless mode
 		}

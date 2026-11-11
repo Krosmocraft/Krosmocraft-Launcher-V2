@@ -92,6 +92,7 @@ public final class LauncherApp extends Application {
 	public void start(Stage stage) {
 		layout = new GameLayout(dataDir());
 		settings = LauncherSettings.load(layout.settingsFile());
+		settings.syncKrosmoLanguage(layout.gameDir());
 		vault = new PasswordVault(layout.keyFile());
 		pipeline = new LaunchPipeline(layout, platform);
 
@@ -560,6 +561,7 @@ public final class LauncherApp extends Application {
 				return;
 			}
 			mainScreen.launchFailed();
+			settings.syncKrosmoLanguage(layout.gameDir());
 			window.stage().show();
 			startMusic();
 			error("Échec du lancement du jeu !", "Minecraft s'est arrêté (code " + code + ")\nDétails : "

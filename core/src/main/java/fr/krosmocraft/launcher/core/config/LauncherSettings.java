@@ -1,11 +1,15 @@
 package fr.krosmocraft.launcher.core.config;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import fr.krosmocraft.launcher.core.Json;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.Locale;
 
 public final class LauncherSettings {
 
@@ -23,6 +27,38 @@ public final class LauncherSettings {
 
 	public String presetId;
 	public String appliedPreset;
+
+	public static final String AUTO = "auto"; // Follows the system language
+	public static final List<String> LANGUAGES = List.of(AUTO, "fr_fr", "en_us", "es_es");
+
+	public String krosmoLanguage = AUTO;
+
+	public String krosmoLanguageArg() {
+		return LANGUAGES.contains(krosmoLanguage) ? krosmoLanguage : AUTO;
+	}
+
+	// Picks up a language changed in game by player
+	public void syncKrosmoLanguage(Path gameDir) {
+		Path file = gameDir.resolve("config").resolve("krosmocraft").resolve("settings.json");
+		try {
+			if (Files.isRegularFile(file)) {
+				JsonObject json = Json.GSON.fromJson(Files.readString(file), JsonObject.class);
+				if (json != null && json.get("krosmoLanguage") instanceof JsonPrimitive p && LANGUAGES.contains(p.getAsString())) {
+					krosmoLanguage = p.getAsString();
+				}
+			}
+		} catch (IOException | RuntimeException e) {
+			// unreadable game settings, keep ours
+		}
+	}
+
+	public static String systemLanguage(Locale locale) {
+		return switch (locale.getLanguage()) {
+			case "fr" -> "fr_fr";
+			case "es" -> "es_es";
+			default -> "en_us";
+		};
+	}
 
 	public int windowWidth() {
 		return part(0);

@@ -4,8 +4,10 @@ import fr.krosmocraft.launcher.core.auth.ProfileInfo;
 import fr.krosmocraft.launcher.core.config.LauncherSettings;
 import fr.krosmocraft.launcher.core.preset.Preset;
 import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -28,6 +30,8 @@ import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static fr.krosmocraft.launcher.app.ui.AbsolutePane.box;
@@ -282,12 +286,93 @@ public final class SettingsOverlay extends Overlay {
 		resolution.valueProperty().addListener((o, a, b) -> settings.gameSize = b);
 		add(resolution, g -> box(g.r(10) * 32 + g.r(5), g.r(10) * 21 + g.r(5), g.r(10) * 13, g.r(10) * 3), 0.8);
 
-		grayLine(g -> box(g.r(10) * 30 + g.r(2), g.r(10) * 27, g.r(10) * 50, 1));
-		boldLabel("Démarrer la fenêtre Minecraft en plein écran", g -> box(g.r(10) * 32 + g.r(5), g.r(10) * 28, g.r(10) * 38, g.r(10) * 4), 1);
-		toggle(settings.fullscreen, v -> settings.fullscreen = v, g -> g.r(10) * 32 + g.r(6));
-		grayLine(g -> box(g.r(10) * 30 + g.r(2), g.r(10) * 37, g.r(10) * 50, 1));
-		boldLabel("Mode plein écran sans bordures", g -> box(g.r(10) * 32 + g.r(5), g.r(10) * 38 - g.r(1), g.r(10) * 24, g.r(10) * 4), 1);
-		toggle(settings.borderless, v -> settings.borderless = v, g -> g.r(10) * 42 + g.r(8));
+		grayLine(g -> box(g.r(10) * 30 + g.r(2), g.r(10) * 26 + g.r(5), g.r(10) * 50, 1));
+		boldLabel("Langue Krosmocraft", g -> box(g.r(10) * 32 + g.r(5), languageY(g), g.r(10) * 17, g.r(10) * 4), 1);
+		languageFlags();
+
+		grayLine(g -> box(g.r(10) * 30 + g.r(2), g.r(10) * 34 + g.r(5), g.r(10) * 50, 1));
+		boldLabel("Démarrer la fenêtre Minecraft en plein écran", g -> box(g.r(10) * 32 + g.r(5), g.r(10) * 36, g.r(10) * 38, g.r(10) * 4), 1);
+		toggle(settings.fullscreen, v -> settings.fullscreen = v, g -> g.r(10) * 40 + g.r(6));
+		grayLine(g -> box(g.r(10) * 30 + g.r(2), g.r(10) * 44 + g.r(5), g.r(10) * 50, 1));
+		boldLabel("Mode plein écran sans bordures", g -> box(g.r(10) * 32 + g.r(5), g.r(10) * 46, g.r(10) * 24, g.r(10) * 4), 1);
+		toggle(settings.borderless, v -> settings.borderless = v, g -> g.r(10) * 50 + g.r(6));
+	}
+
+	private void languageFlags() {
+		List<String> choices = LauncherSettings.LANGUAGES;
+		List<Label> frames = new ArrayList<>();
+		List<ImageView> flags = new ArrayList<>();
+		// Stop the running fade first, two fades on the same flag fight each other
+		Timeline[] fades = new Timeline[choices.size()];
+		BiConsumer<Integer, Double> fadeFlag = (i, ms) -> {
+			if (fades[i] != null) {
+				fades[i].stop();
+			}
+			boolean on = choices.get(i).equals(currentLanguage());
+			fades[i] = Fx.fade(flags.get(i), on ? 1 : 0.45, ms);
+		};
+		Label name = Fx.label("");
+		name.setAlignment(Pos.CENTER_LEFT);
+		Consumer<Double> refresh = ms -> {
+			for (int i = 0; i < choices.size(); i++) {
+				frames.get(i).setVisible(choices.get(i).equals(currentLanguage()));
+				fadeFlag.accept(i, ms);
+			}
+			name.setText(languageName(currentLanguage()));
+		};
+		for (int i = 0; i < choices.size(); i++) {
+			int slot = i;
+			String choice = choices.get(i);
+			Label frame = new Label();
+			frame.setStyle("-fx-border-color: #ffc94a; -fx-border-width: 2; -fx-border-radius: 3;"
+					+ " -fx-background-color: rgba(255, 201, 74, 0.25); -fx-background-radius: 3;");
+			add(frame, g -> box(flagX(g, slot) - g.r(3), languageY(g) + g.r(5) - g.r(3), g.r(10) * 4 + g.r(6), g.r(10) * 3 + g.r(6)), 1);
+			frames.add(frame);
+			ImageView flag = Fx.view("flags/" + choice + ".png");
+			flag.setOpacity(0);
+			tab.place(flag, g -> box(flagX(g, slot), languageY(g) + g.r(5), g.r(10) * 4, g.r(10) * 3));
+			flags.add(flag);
+			flag.setCursor(Cursor.HAND);
+			flag.setOnMouseEntered(e -> {
+				if (!choice.equals(currentLanguage())) {
+					fades[slot].stop();
+					fades[slot] = Fx.fade(flag, 0.85, 150);
+				}
+			});
+			flag.setOnMouseExited(e -> {
+				if (!choice.equals(currentLanguage())) {
+					fadeFlag.accept(slot, 150.0);
+				}
+			});
+			flag.setOnMouseClicked(e -> {
+				settings.krosmoLanguage = choice;
+				refresh.accept(200.0);
+			});
+		}
+		add(name, g -> box(flagX(g, choices.size()), languageY(g), g.r(10) * 12, g.r(10) * 4), 0.8);
+		tab.font(name, g -> Fx.regular(g.fs()));
+		refresh.accept(500.0);
+	}
+
+	private String currentLanguage() {
+		return LauncherSettings.LANGUAGES.contains(settings.krosmoLanguage) ? settings.krosmoLanguage : LauncherSettings.AUTO;
+	}
+
+	private static int languageY(Geo g) {
+		return g.r(10) * 28 + g.r(5);
+	}
+
+	private static int flagX(Geo g, int slot) {
+		return g.r(10) * 51 + slot * g.r(10) * 5;
+	}
+
+	private static String languageName(String choice) {
+		return switch (choice) {
+			case "fr_fr" -> "Français";
+			case "en_us" -> "English";
+			case "es_es" -> "Español";
+			default -> "Auto (" + languageName(LauncherSettings.systemLanguage(Locale.getDefault())) + ")";
+		};
 	}
 
 	private void graphicsTab() {

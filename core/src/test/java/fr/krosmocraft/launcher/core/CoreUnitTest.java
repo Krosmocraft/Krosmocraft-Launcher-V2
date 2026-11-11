@@ -1,5 +1,6 @@
 package fr.krosmocraft.launcher.core;
 
+import fr.krosmocraft.launcher.core.config.LauncherSettings;
 import fr.krosmocraft.launcher.core.game.Maven;
 import fr.krosmocraft.launcher.core.game.Rules;
 import fr.krosmocraft.launcher.core.game.VersionProfile;
@@ -46,6 +47,31 @@ class CoreUnitTest {
 		assertEquals("net/fabricmc/fabric-loader/0.20.1/fabric-loader-0.20.1.jar", Maven.path("net.fabricmc:fabric-loader:0.20.1"));
 		assertEquals("org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-macos-arm64.jar", Maven.path("org.lwjgl:lwjgl:3.3.3:natives-macos-arm64"));
 		assertEquals(Maven.key("org.ow2.asm:asm:9.6"), Maven.key("org.ow2.asm:asm:9.8"));
+	}
+
+	@Test
+	void systemLanguageMapsToSupportedOnes() {
+		assertEquals("fr_fr", LauncherSettings.systemLanguage(java.util.Locale.CANADA_FRENCH));
+		assertEquals("es_es", LauncherSettings.systemLanguage(java.util.Locale.of("es", "MX")));
+		assertEquals("en_us", LauncherSettings.systemLanguage(java.util.Locale.GERMANY));
+	}
+
+	@Test
+	void krosmoLanguageSyncsFromGameSettings(@TempDir Path dir) throws Exception {
+		LauncherSettings s = new LauncherSettings();
+		assertEquals("auto", s.krosmoLanguageArg());
+		s.syncKrosmoLanguage(dir);
+		assertEquals("auto", s.krosmoLanguageArg());
+
+		Path file = dir.resolve("config/krosmocraft/settings.json");
+		Files.createDirectories(file.getParent());
+		Files.writeString(file, "{\n  \"damageLog\": true,\n  \"krosmoLanguage\": \"es_es\"\n}");
+		s.syncKrosmoLanguage(dir);
+		assertEquals("es_es", s.krosmoLanguageArg());
+
+		Files.writeString(file, "{\"krosmoLanguage\": \"de_de\"}");
+		s.syncKrosmoLanguage(dir);
+		assertEquals("es_es", s.krosmoLanguageArg());
 	}
 
 	@Test
