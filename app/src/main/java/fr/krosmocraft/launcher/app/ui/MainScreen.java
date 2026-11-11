@@ -1,5 +1,6 @@
 package fr.krosmocraft.launcher.app.ui;
 
+import fr.krosmocraft.launcher.app.Tr;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -28,9 +29,11 @@ public final class MainScreen extends AbsolutePane {
 		void muteChanged(boolean muted);
 	}
 
-	private final Label play = big("JOUER >");
-	private final Label loading = big("Chargement...");
-	private final Label step = Fx.label("Préparation de la mise a jour...");
+	private final Label play = big(Tr.t("main.play"));
+	private final Label loading = big(Tr.t("main.loading"));
+	private final Label step = Fx.label(Tr.t("step.preparing"));
+	private final Label players = Fx.label(Tr.t("main.players"));
+	private final Label edit = Fx.label(Tr.t("main.edit"));
 	private final Label percent = Fx.label("0%");
 	private final StripedProgressBar bar = new StripedProgressBar();
 	private final ImageView mute = Fx.view("mute.png");
@@ -107,19 +110,18 @@ public final class MainScreen extends AbsolutePane {
 		});
 		play.setVisible(false);
 
-		Label players = Fx.label("JOUEURS");
 		players.setAlignment(Pos.CENTER);
-		place(players, g -> box(0, g.h() - g.w() / 17, g.h() / 7, g.h() / 6));
+		place(players, g -> box(0, g.h() - g.w() / 17, playersWidth(g), g.h() / 6));
 		font(players, g -> Fx.bold(g.fs2()));
 		targets.put(players, 1.0);
 		Label count = Fx.label(playerCount + "/300");
 		count.setTextFill(Color.GRAY);
 		count.setAlignment(Pos.CENTER_LEFT);
-		place(count, g -> box(g.h() / 7 + g.r(3), g.h() - (g.w() / 34 + g.w() / 35), g.h() / 11, g.h() / 6));
+		place(count, g -> box(playersWidth(g) + g.r(3), g.h() - (g.w() / 34 + g.w() / 35), g.h() / 11, g.h() / 6));
 		font(count, g -> Fx.bold(g.fs2() - 4));
 		targets.put(count, 1.0);
 		Label countHitbox = Fx.hitbox();
-		place(countHitbox, g -> box(0, g.h() - g.h() / 20, g.h() / 5 + g.h() / 17, g.h() / 20));
+		place(countHitbox, g -> box(0, g.h() - g.h() / 20, playersWidth(g) - g.h() / 7 + g.h() / 5 + g.h() / 17, g.h() / 20));
 		countHitbox.setOnMouseEntered(e -> {
 			Glow glow = new Glow(0);
 			players.setEffect(glow);
@@ -186,7 +188,6 @@ public final class MainScreen extends AbsolutePane {
 		ImageView overlay = Fx.view("picOverlay.png");
 		overlay.setOpacity(0);
 		place(overlay, g -> box(g.w() - (g.h() / 8 + g.h() / 12), g.h() / 12, g.h() / 20 * 3, g.h() / 20 * 3));
-		Label edit = Fx.label("Modifier");
 		edit.setAlignment(Pos.CENTER);
 		edit.setOpacity(0);
 		place(edit, g -> box(g.w() - (g.h() / 8 + g.h() / 12), g.h() / 12, g.h() / 20 * 3, g.h() / 20 * 3));
@@ -253,7 +254,7 @@ public final class MainScreen extends AbsolutePane {
 		loading.setOpacity(1);
 		bar.setProgress(0);
 		percent.setText("0%");
-		step.setText("Préparation de la mise a jour...");
+		step.setText(Tr.t("step.preparing"));
 		showProgress(false);
 	}
 
@@ -276,7 +277,7 @@ public final class MainScreen extends AbsolutePane {
 		ready = true;
 		setProgressVisible(false);
 		loading.setVisible(false);
-		play.setText("JOUER >");
+		play.setText(Tr.t("main.play"));
 		play.setVisible(true);
 		play.setOpacity(1);
 	}
@@ -289,12 +290,24 @@ public final class MainScreen extends AbsolutePane {
 
 	public void launching() {
 		ready = false;
-		play.setText("Lancement du jeu...");
+		play.setText(Tr.t("main.launching"));
+	}
+
+	// the old h / 7 slot, wider when the translation doesn't fit
+	private double playersWidth(Geo g) {
+		return Math.max(g.h() / 7, players.prefWidth(-1) + g.r(10) * 2);
+	}
+
+	public void retranslate() {
+		loading.setText(Tr.t("main.loading"));
+		players.setText(Tr.t("main.players"));
+		edit.setText(Tr.t("main.edit"));
+		play.setText(Tr.t(ready || !play.isVisible() ? "main.play" : "main.launching"));
 	}
 
 	public void launchFailed() {
 		ready = true;
-		play.setText("JOUER >");
+		play.setText(Tr.t("main.play"));
 	}
 
 	private ImageView image(String name, java.util.function.Function<Geo, Box> rule, double target) {

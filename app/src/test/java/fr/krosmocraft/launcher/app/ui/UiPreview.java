@@ -1,7 +1,8 @@
 package fr.krosmocraft.launcher.app.ui;
 
-import fr.krosmocraft.launcher.core.config.LauncherSettings;
+import fr.krosmocraft.launcher.app.Tr;
 import fr.krosmocraft.launcher.core.auth.ProfileInfo;
+import fr.krosmocraft.launcher.core.config.LauncherSettings;
 import fr.krosmocraft.launcher.core.preset.Preset;
 import javafx.application.Platform;
 import javafx.scene.image.WritableImage;
@@ -20,6 +21,11 @@ public final class UiPreview {
 
 	public static void main(String[] args) throws Exception {
 		out = new File(args.length > 0 ? args[0] : "build/ui-preview");
+		String lang = System.getProperty("preview.lang", "fr_fr");
+		Tr.setLanguage(lang);
+		if (!lang.equals("fr_fr")) {
+			out = new File(out, lang);
+		}
 		out.mkdirs();
 		CountDownLatch started = new CountDownLatch(1);
 		Platform.startup(started::countDown);
@@ -38,7 +44,7 @@ public final class UiPreview {
 		shoot("03-main-ready", false, w -> main(w, true));
 		shoot("04-main-ready-maximized", true, w -> main(w, true));
 		shoot("05-presets-first-launch", false, w -> new PresetOverlay(presets, p -> { }).open(w));
-		for (String tab : new String[]{"Compte", "Minecraft", "Graphisme", "Java"}) {
+		for (String tab : new String[]{"account", "minecraft", "graphics", "java"}) {
 			shoot("06-settings-" + tab.toLowerCase(), false, w -> {
 				main(w, true);
 				SettingsOverlay s = new SettingsOverlay(settings, "SaintPepsi", null, presets, new SettingsOverlay.Actions() {
@@ -52,6 +58,10 @@ public final class UiPreview {
 
 					@Override
 					public void presetPicked(Preset preset, boolean reset) {
+					}
+
+					@Override
+					public void languageChanged() {
 					}
 				});
 				s.setProfile(new ProfileInfo("Fondateur", "12", "3400"));

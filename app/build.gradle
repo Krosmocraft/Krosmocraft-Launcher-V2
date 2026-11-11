@@ -60,6 +60,7 @@ tasks.register('uiPreview', JavaExec) {
 	mainClass = 'fr.krosmocraft.launcher.app.ui.UiPreview'
 	args layout.buildDirectory.dir('ui-preview').get().asFile.absolutePath
 	jvmArgs '--enable-native-access=ALL-UNNAMED'
+	systemProperty 'preview.lang', project.findProperty('previewLang') ?: 'fr_fr'
 }
 
 tasks.named('test') {

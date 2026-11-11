@@ -1,13 +1,6 @@
 package fr.krosmocraft.launcher.app;
 
-import fr.krosmocraft.launcher.app.ui.ErrorOverlay;
-import fr.krosmocraft.launcher.app.ui.Fx;
-import fr.krosmocraft.launcher.app.ui.LauncherWindow;
-import fr.krosmocraft.launcher.app.ui.LoginScreen;
-import fr.krosmocraft.launcher.app.ui.MainScreen;
-import fr.krosmocraft.launcher.app.ui.PresetOverlay;
-import fr.krosmocraft.launcher.app.ui.PseudoOverlay;
-import fr.krosmocraft.launcher.app.ui.SettingsOverlay;
+import fr.krosmocraft.launcher.app.ui.*;
 import fr.krosmocraft.launcher.core.LaunchPipeline;
 import fr.krosmocraft.launcher.core.auth.AuthResult;
 import fr.krosmocraft.launcher.core.auth.KrosmoAuthClient;
@@ -15,6 +8,7 @@ import fr.krosmocraft.launcher.core.auth.ProfileInfo;
 import fr.krosmocraft.launcher.core.config.LauncherSettings;
 import fr.krosmocraft.launcher.core.config.PasswordVault;
 import fr.krosmocraft.launcher.core.game.GameLayout;
+import fr.krosmocraft.launcher.core.game.LaunchGuard;
 import fr.krosmocraft.launcher.core.mods.ClientManifest;
 import fr.krosmocraft.launcher.core.net.Downloader;
 import fr.krosmocraft.launcher.core.net.Http;
@@ -74,7 +68,7 @@ public final class LauncherApp extends Application {
 	private Task<Void> syncTask;
 	private LaunchPipeline.Prepared prepared;
 	private String preparedPresetId;
-	private String progressText = "Préparation de la mise a jour...";
+	private String progressText;
 	private double progressValue;
 
 	private LoginScreen loginScreen;
@@ -93,6 +87,8 @@ public final class LauncherApp extends Application {
 		layout = new GameLayout(dataDir());
 		settings = LauncherSettings.load(layout.settingsFile());
 		settings.syncKrosmoLanguage(layout.gameDir());
+		Tr.setLanguage(settings.krosmoLanguageCode());
+		progressText = Tr.t("step.preparing");
 		vault = new PasswordVault(layout.keyFile());
 		pipeline = new LaunchPipeline(layout, platform);
 
@@ -166,7 +162,7 @@ public final class LauncherApp extends Application {
 				task.getException().printStackTrace();
 			}
 			if (mainScreen != null) {
-				error("Échec de la mise à jour !", "Vérifiez votre connexion Internet puis réessayez", this::prepare);
+				error(Tr.t("error.update.title"), Tr.t("error.update.body"), this::prepare);
 			}
 		});
 		prepareTask = task;
@@ -185,7 +181,7 @@ public final class LauncherApp extends Application {
 		}
 		prepared = null;
 		preparedPresetId = null;
-		progressText = "Préparation de la mise a jour...";
+		progressText = Tr.t("step.preparing");
 		progressValue = 0;
 	}
 
@@ -273,7 +269,7 @@ public final class LauncherApp extends Application {
 		KrosmoAuthClient auth = new KrosmoAuthClient(server.authUrl());
 		long start = System.nanoTime();
 		run(() -> auth.login(c.username(), c.password()), result -> afterMinDelay(start, () -> onAuth(result)),
-				e -> afterMinDelay(start, () -> loginFailed("Le serveur est hors ligne ou en maintenance, réessayer plus tard")));
+				e -> afterMinDelay(start, () -> loginFailed(Tr.t("error.offline"))));
 	}
 
 	// a login answered instantly feels fake: show the spinner at least this long
@@ -295,7 +291,7 @@ public final class LauncherApp extends Application {
 		window.setServerLocked(false);
 		loginScreen.failed();
 		if (message != null) {
-			error("Authentification échouée !", message, null);
+			error(Tr.t("error.auth.title"), message, null);
 		}
 	}
 
@@ -306,9 +302,9 @@ public final class LauncherApp extends Application {
 				loggedIn();
 			}
 			case AuthResult.NeedsPseudo n -> loggedIn();
-			case AuthResult.WrongCredentials w -> loginFailed("Veuillez vérifier le nom de compte et le mot de passe saisi");
-			case AuthResult.NotAllowed n -> loginFailed("Ce serveur est réservé à l'équipe de développement");
-			case AuthResult.Unreachable u -> loginFailed("Le serveur est hors ligne ou en maintenance, réessayer plus tard");
+			case AuthResult.WrongCredentials w -> loginFailed(Tr.t("error.credentials"));
+			case AuthResult.NotAllowed n -> loginFailed(Tr.t("error.not_allowed"));
+			case AuthResult.Unreachable u -> loginFailed(Tr.t("error.offline"));
 			case AuthResult.PseudoRejected r -> loginFailed(null); // not sent by /login
 		}
 	}
@@ -377,21 +373,21 @@ public final class LauncherApp extends Application {
 						}
 						case AuthResult.PseudoRejected r -> {
 							overlay[0].rejected();
-							error("Pseudo invalide !", switch (r.reason()) {
-								case BAD_SIZE -> "Votre pseudo doit comprendre entre 3 et 13 caractères";
-								case INVALID -> "Le pseudo choisi est invalide";
-								case TAKEN -> "Ce pseudo n'est pas disponible";
+							error(Tr.t("error.pseudo.title"), switch (r.reason()) {
+								case BAD_SIZE -> Tr.t("error.pseudo.size");
+								case INVALID -> Tr.t("error.pseudo.invalid");
+								case TAKEN -> Tr.t("error.pseudo.taken");
 							}, null);
 						}
 						default -> {
 							overlay[0].rejected();
-							error("Authentification échouée !", "Le serveur est hors ligne ou en maintenance, réessayer plus tard", null);
+							error(Tr.t("error.auth.title"), Tr.t("error.offline"), null);
 						}
 					}
 				},
 				e -> {
 					overlay[0].rejected();
-					error("Authentification échouée !", "Le serveur est hors ligne ou en maintenance, réessayer plus tard", null);
+					error(Tr.t("error.auth.title"), Tr.t("error.offline"), null);
 				}));
 		overlay[0].open(window);
 	}
@@ -463,6 +459,12 @@ public final class LauncherApp extends Application {
 			public void presetPicked(Preset preset, boolean reset) {
 				presetChosen(preset, reset);
 			}
+
+			@Override
+			public void languageChanged() {
+				window.stage().setTitle(Tr.t("window.title"));
+				mainScreen.retranslate();
+			}
 		});
 		overlay.setProfile(profile);
 		if (profile == ProfileInfo.EMPTY) {
@@ -519,7 +521,7 @@ public final class LauncherApp extends Application {
 			});
 			sync.setOnFailed(e -> {
 				if (sync == syncTask) {
-					error("Échec de la mise à jour !", "Vérifiez votre connexion Internet puis réessayez", this::prepare);
+					error(Tr.t("error.update.title"), Tr.t("error.update.body"), this::prepare);
 				}
 			});
 			syncTask = sync;
@@ -537,7 +539,8 @@ public final class LauncherApp extends Application {
 		LaunchPipeline.Prepared p = prepared;
 		run(() -> pipeline.launch(p, server, s, settings), this::watchGame, e -> {
 			mainScreen.launchFailed();
-			error("Échec du lancement du jeu !", String.valueOf(e.getMessage()), null);
+			error(Tr.t("error.launch.title"), e instanceof LaunchGuard.ForbiddenOptions f
+					? Tr.t("error.java_options", String.join(", ", f.problems())) : String.valueOf(e.getMessage()), null);
 		});
 	}
 
@@ -564,8 +567,7 @@ public final class LauncherApp extends Application {
 			settings.syncKrosmoLanguage(layout.gameDir());
 			window.stage().show();
 			startMusic();
-			error("Échec du lancement du jeu !", "Minecraft s'est arrêté (code " + code + ")\nDétails : "
-					+ layout.logsDir().resolve("game-stdout.log"), null);
+			error(Tr.t("error.launch.title"), Tr.t("error.launch.crash", code, layout.logsDir().resolve("game-stdout.log")), null);
 		}, e -> javafx.application.Platform.exit());
 	}
 

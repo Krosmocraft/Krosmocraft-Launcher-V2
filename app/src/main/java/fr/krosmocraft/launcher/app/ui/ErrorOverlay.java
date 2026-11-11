@@ -1,5 +1,6 @@
 package fr.krosmocraft.launcher.app.ui;
 
+import fr.krosmocraft.launcher.app.Tr;
 import javafx.event.EventHandler;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -7,8 +8,6 @@ import javafx.scene.effect.Glow;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.text.TextAlignment;
-
-import static fr.krosmocraft.launcher.app.ui.AbsolutePane.box;
 
 public final class ErrorOverlay extends Overlay {
 
@@ -24,7 +23,7 @@ public final class ErrorOverlay extends Overlay {
 		place(m, g -> box(0, 0, g.w(), g.h() + g.r(10) * 7));
 		font(m, g -> Fx.regular(g.fs2()));
 
-		Label retry = Fx.label("Réessayer >");
+		Label retry = Fx.label(Tr.t("error.retry"));
 		retry.setAlignment(Pos.CENTER);
 		retry.setStyle("-fx-border-color: white; -fx-border-width: 2px; -fx-background-color: transparent;");
 		retry.setOpacity(0.8);

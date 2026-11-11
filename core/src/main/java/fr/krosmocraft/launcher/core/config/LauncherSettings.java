@@ -37,6 +37,11 @@ public final class LauncherSettings {
 		return LANGUAGES.contains(krosmoLanguage) ? krosmoLanguage : AUTO;
 	}
 
+	public String krosmoLanguageCode() {
+		String choice = krosmoLanguageArg();
+		return choice.equals(AUTO) ? systemLanguage(Locale.getDefault()) : choice;
+	}
+
 	// Picks up a language changed in game by player
 	public void syncKrosmoLanguage(Path gameDir) {
 		Path file = gameDir.resolve("config").resolve("krosmocraft").resolve("settings.json");

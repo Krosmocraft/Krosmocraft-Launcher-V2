@@ -1,25 +1,19 @@
 package fr.krosmocraft.launcher.app.ui;
 
+import fr.krosmocraft.launcher.app.Tr;
 import javafx.animation.Timeline;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextField;
-import javafx.scene.control.TextFormatter;
-import javafx.scene.control.TextInputControl;
-import javafx.scene.text.Font;
+import javafx.scene.control.*;
 import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
-import javafx.geometry.Pos;
+import javafx.scene.text.Font;
 
 import java.util.List;
 import java.util.function.Consumer;
-
-import static fr.krosmocraft.launcher.app.ui.AbsolutePane.box;
 
 public final class LoginScreen extends AbsolutePane {
 
@@ -30,13 +24,13 @@ public final class LoginScreen extends AbsolutePane {
 	private final ImageView logo = Fx.view("logo.png");
 	private final TextField username = new TextField();
 	private final PasswordField password = new PasswordField();
-	private final Label rememberMe = Fx.label("Se souvenir de moi");
+	private final Label rememberMe = Fx.label(Tr.t("login.remember"));
 	private final AnimatedCheckBox rememberBox;
-	private final Label forgot = Fx.label("Mot de passe oublié");
-	private final Label register = Fx.label("Inscription");
+	private final Label forgot = Fx.label(Tr.t("login.forgot"));
+	private final Label register = Fx.label(Tr.t("login.register"));
 	private final ImageView spinner = Fx.view("loading.png");
 	private final ImageView checked = new ImageView();
-	private final Button login = new Button("Se connecter >");
+	private final Button login = new Button(Tr.t("login.button"));
 	private final Consumer<Credentials> onLogin;
 	private Timeline spinAnimation;
 	private boolean busy;
@@ -50,12 +44,12 @@ public final class LoginScreen extends AbsolutePane {
 		place(logo, g -> box(g.w() / 2 - g.w() / 14, g.h() / 12 + g.h() / 21, g.w() / 8 + g.w() / 50, g.h() / 5 + g.h() / 12));
 
 		username.setTextFormatter(limit(16));
-		username.setPromptText("Nom de compte");
+		username.setPromptText(Tr.t("login.username"));
 		username.setText(savedUser);
 		field(username, g -> box(g.w() / 2 - g.w() / 7, g.h() / 2 - g.h() / 10 + g.h() / 21 - g.h() / 100,
 				g.w() / 4 + g.w() / 28, g.h() / 12));
 		password.setTextFormatter(limit(Integer.MAX_VALUE));
-		password.setPromptText("Mot de passe");
+		password.setPromptText(Tr.t("login.password"));
 		password.setText(savedPassword);
 		field(password, g -> box(g.w() / 2 - g.w() / 7, g.h() / 2 + g.h() / 21 - g.h() / 100,
 				g.w() / 4 + g.w() / 28, g.h() / 12));
@@ -138,7 +132,7 @@ public final class LoginScreen extends AbsolutePane {
 
 	private void setBusy(boolean b) {
 		busy = b;
-		login.setText(b ? "Connexion..." : "Se connecter >");
+		login.setText(Tr.t(b ? "login.connecting" : "login.button"));
 		username.setDisable(b);
 		password.setDisable(b);
 		username.setOpacity(b ? 0.7 : 1);
@@ -155,7 +149,7 @@ public final class LoginScreen extends AbsolutePane {
 
 	public void succeeded() {
 		spinner.setOpacity(0);
-		login.setText("Succès !");
+		login.setText(Tr.t("login.success"));
 		Geo g = geo();
 		checked.setImage(new Image(Fx.res("checked.gif"), g.h() / 20, g.h() / 20, true, true));
 		place(checked, gg -> box(gg.w() / 2 - gg.h() / 37, gg.h() * 0.825, gg.h() / 20, gg.h() / 20));

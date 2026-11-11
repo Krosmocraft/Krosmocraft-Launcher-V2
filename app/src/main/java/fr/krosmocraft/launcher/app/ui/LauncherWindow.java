@@ -1,5 +1,6 @@
 package fr.krosmocraft.launcher.app.ui;
 
+import fr.krosmocraft.launcher.app.Tr;
 import fr.krosmocraft.launcher.core.server.ServerEntry;
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
@@ -7,11 +8,7 @@ import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Control;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
+import javafx.scene.control.*;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -48,7 +45,7 @@ public final class LauncherWindow {
 		boolean transparent = Platform.isSupported(ConditionalFeature.TRANSPARENT_WINDOW);
 		stage.initStyle(transparent ? StageStyle.TRANSPARENT : StageStyle.UNDECORATED);
 		stage.setResizable(false);
-		stage.setTitle("Launcher Krosmocraft");
+		stage.setTitle(Tr.t("window.title"));
 		stage.getIcons().add(Fx.image("favicon.png"));
 		root.setPickOnBounds(true);
 		root.setStyle("-fx-background-color: transparent;");

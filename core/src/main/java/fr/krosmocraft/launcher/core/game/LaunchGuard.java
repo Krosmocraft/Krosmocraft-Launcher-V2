@@ -1,5 +1,6 @@
 package fr.krosmocraft.launcher.core.game;
 
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,19 @@ public final class LaunchGuard {
 			"-xx:flags", "-xx:vmoptionsfile");
 
 	private LaunchGuard() {
+	}
+
+	public static final class ForbiddenOptions extends IOException {
+		private final List<String> problems;
+
+		public ForbiddenOptions(List<String> problems) {
+			super("Forbidden Java options: " + String.join(", ", problems));
+			this.problems = List.copyOf(problems);
+		}
+
+		public List<String> problems() {
+			return problems;
+		}
 	}
 
 	public static List<String> problems() {

@@ -1,5 +1,6 @@
 package fr.krosmocraft.launcher.app.ui;
 
+import fr.krosmocraft.launcher.app.Tr;
 import fr.krosmocraft.launcher.core.preset.Preset;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -90,15 +91,15 @@ final class PresetGallery {
 	}
 
 	private void show(Preset p) {
-		name.setText(p == null ? "" : p.name());
-		description.setText(p == null ? "" : p.description() + "\n\n" + impact(p.fpsImpact()));
+		name.setText(p == null ? "" : Tr.or("preset." + p.id() + ".name", p.name()));
+		description.setText(p == null ? "" : Tr.or("preset." + p.id() + ".description", p.description()) + "\n\n" + impact(p.fpsImpact()));
 	}
 
 	static String impact(Preset.FpsImpact impact) {
 		return switch (impact == null ? Preset.FpsImpact.MEDIUM : impact) {
-			case LOW -> "Impact sur les FPS : faible";
-			case MEDIUM -> "Impact sur les FPS : moyen";
-			case HIGH -> "Impact sur les FPS : élevé";
+			case LOW -> Tr.t("preset.impact.low");
+			case MEDIUM -> Tr.t("preset.impact.medium");
+			case HIGH -> Tr.t("preset.impact.high");
 		};
 	}
 

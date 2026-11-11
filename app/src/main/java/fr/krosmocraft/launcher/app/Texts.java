@@ -1,20 +1,15 @@
 package fr.krosmocraft.launcher.app;
 
-import java.util.Map;
+import java.util.Set;
 
 public final class Texts {
 
-	private static final Map<String, String> STEPS = Map.of(
-			"install.versions", "Indexion de la version Minecraft...",
-			"install.libraries", "Téléchargement des librairies...",
-			"install.assets", "Téléchargement des ressources...",
-			"install.java", "Téléchargement de java...",
-			"install.mods", "Indexion des fichiers Krosmocraft...");
+	private static final Set<String> STEPS = Set.of("install.versions", "install.libraries", "install.assets", "install.java", "install.mods");
 
 	private Texts() {
 	}
 
 	public static String step(String key) {
-		return STEPS.getOrDefault(key, "Vérification de l'installation...");
+		return Tr.t(STEPS.contains(key) ? key : "step.checking");
 	}
 }

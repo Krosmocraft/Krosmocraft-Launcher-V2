@@ -1,5 +1,6 @@
 package fr.krosmocraft.launcher.app.ui;
 
+import fr.krosmocraft.launcher.app.Tr;
 import fr.krosmocraft.launcher.core.preset.Preset;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -7,18 +8,16 @@ import javafx.scene.control.Label;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static fr.krosmocraft.launcher.app.ui.AbsolutePane.box;
-
 public final class PresetOverlay extends Overlay {
 
 	private boolean chosen;
 
 	public PresetOverlay(List<Preset> presets, Consumer<Preset> onChoose) {
-		Label title = appear(Fx.label("Paramètres graphiques"), 1);
+		Label title = appear(Fx.label(Tr.t("graphics.title")), 1);
 		title.setAlignment(Pos.CENTER);
 		place(title, g -> box(0, 12 * g.r(10), g.w(), 30));
 		font(title, g -> helveticaBold(g.fs() * 2));
-		Label subtitle = appear(Fx.label("Choisissez une option graphique adaptée"), 1);
+		Label subtitle = appear(Fx.label(Tr.t("graphics.subtitle")), 1);
 		subtitle.setAlignment(Pos.CENTER);
 		place(subtitle, g -> box(0, 16 * g.r(10), g.w(), 30));
 		font(subtitle, g -> Fx.regular(g.fs()));

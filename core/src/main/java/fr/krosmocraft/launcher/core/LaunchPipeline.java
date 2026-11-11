@@ -2,12 +2,7 @@ package fr.krosmocraft.launcher.core;
 
 import fr.krosmocraft.launcher.core.auth.AuthResult;
 import fr.krosmocraft.launcher.core.config.LauncherSettings;
-import fr.krosmocraft.launcher.core.game.GameInstaller;
-import fr.krosmocraft.launcher.core.game.GameLayout;
-import fr.krosmocraft.launcher.core.game.JavaRuntimeInstaller;
-import fr.krosmocraft.launcher.core.game.LaunchCommand;
-import fr.krosmocraft.launcher.core.game.LaunchGuard;
-import fr.krosmocraft.launcher.core.game.VersionProfile;
+import fr.krosmocraft.launcher.core.game.*;
 import fr.krosmocraft.launcher.core.mods.ClientManifest;
 import fr.krosmocraft.launcher.core.mods.FileSync;
 import fr.krosmocraft.launcher.core.net.Downloader;
@@ -71,7 +66,7 @@ public final class LaunchPipeline {
 			throws IOException {
 		List<String> problems = LaunchGuard.problems();
 		if (!problems.isEmpty()) {
-			throw new IOException("Options Java non autorisées détectées : " + String.join(", ", problems));
+			throw new LaunchGuard.ForbiddenOptions(problems);
 		}
 		Preset preset = prepared.manifest().preset(settings.presetId);
 		Downloader.run(new GameInstaller(layout, platform).codeFiles(prepared.profile()), Downloader.Verify.FULL, ProgressListener.NONE);
